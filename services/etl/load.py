@@ -36,7 +36,7 @@ from datetime import datetime, timezone
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROJ = os.path.abspath(os.path.join(HERE, "..", ".."))
 DATA = os.environ.get("PCP_DATA_DIR") or os.path.join(PROJ, "data")
-DB = os.path.join(PROJ, "data", "pcp.db")
+DB = os.path.join(os.environ.get("PCP_DATA_DIR") or os.path.join(PROJ, "data"), "pcp.db")
 
 DATE_RE = re.compile(r"_(\d{4}-\d{2}-\d{2})\.jsonl\.gz$")
 

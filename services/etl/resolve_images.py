@@ -37,7 +37,7 @@ from datetime import datetime, timezone
 PROJ = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 DATA = os.environ.get("PCP_DATA_DIR") or os.path.join(PROJ, "data")
 OUT = os.path.join(DATA, "image_resolution.jsonl")
-DB = os.path.join(PROJ, "data", "pcp.db")
+DB = os.path.join(os.environ.get("PCP_DATA_DIR") or os.path.join(PROJ, "data"), "pcp.db")
 UA = "pokemon-card-price/0.1 (image resolution)"
 
 

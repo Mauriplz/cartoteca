@@ -395,3 +395,86 @@ export function getMarketStats() {
     arbs: one("SELECT COUNT(*) v FROM signals WHERE signal='market_divergence' AND as_of = ?", asOf),
   };
 }
+
+/**
+ * Serie del Indice Cartoteca (metodologia index_v1, congelada en
+ * services/index/methodology.md ANTES del primer valor publicado).
+ * Cada punto lleva su intervalo real: con huecos de captura un valor cubre
+ * varios dias y la interfaz debe decirlo, no disimularlo.
+ */
+export function getIndexSeries() {
+  return db().prepare(`
+    SELECT as_of, segment, value, mean_return, n_constituents, n_clipped,
+           prev_date, interval_days
+    FROM market_index WHERE methodology = 'index_v1'
+    ORDER BY as_of, segment
+  `).all() as Array<{
+    as_of: string; segment: string; value: number; mean_return: number | null;
+    n_constituents: number | null; n_clipped: number | null;
+    prev_date: string | null; interval_days: number | null;
+  }>;
+}
+
+/**
+ * Movers entre nuestras dos ultimas observaciones.
+ *
+ * Reglas de honestidad, no negociables:
+ *  - cada fila declara sus DOS fechas y el intervalo real; con >1 dia el titular
+ *    es "desde nuestra ultima captura", jamas "del dia";
+ *  - es la variacion de una marca SUAVIZADA de la fuente: informacion etiquetada,
+ *    nunca insumo de senales ni del track record;
+ *  - solo instrumentos con trend >= 15 EUR en la observacion previa (point-in-time)
+ *    y sin los que despiertan tras silencio (avg7==avg30 previo);
+ *  - sin artefactos de marca (|cambio|>25% con las tres medias de la fuente
+ *    congeladas: la fuente remapeando, no el mercado — caso real: 161->5.201 EUR).
+ */
+export function getMovers(opts: { limit?: number; direction?: "up" | "down" } = {}) {
+  const order = opts.direction === "down" ? "ASC" : "DESC";
+  return db().prepare(`
+    SELECT m.as_of, m.prev_date, m.interval_days, m.prev_trend, m.curr_trend, m.pct_change,
+           i.instrument_id, i.card_id, i.lang, i.variant_type, i.variant_subtype,
+           c.name, c.illustrator, c.rarity, c.set_id, c.local_id, c.image,
+           c.image_alt, c.image_alt_lang, c.image_ext, c.image_ext_src, c.types,
+           s.name AS set_name, s.release_date
+    FROM movers m
+    JOIN instruments i ON i.instrument_id = m.instrument_id
+    JOIN cards c ON c.card_id = i.card_id AND c.lang = i.lang
+    LEFT JOIN sets s ON s.set_id = c.set_id AND s.lang = c.lang
+    JOIN price_obs prev ON prev.instrument_id = m.instrument_id AND prev.obs_date = m.prev_date
+    WHERE m.as_of = (SELECT MAX(as_of) FROM movers)
+      AND ${"i.is_digital = 0 AND i.cm_collision = 0"}
+      AND NOT (prev.cm_avg7 IS NOT NULL AND prev.cm_avg7 = prev.cm_avg30)
+      AND m.is_artifact = 0
+    ORDER BY m.pct_change ${order}
+    LIMIT ?
+  `).all(opts.limit ?? 15) as Array<
+    CardRow & {
+      as_of: string; prev_date: string; interval_days: number;
+      prev_trend: number; curr_trend: number; pct_change: number;
+    }
+  >;
+}
+
+/**
+ * Panel de calidad de datos: las costuras, en publico. Nadie del sector las
+ * enseña; enseñarlas es lo que hace creible todo lo demas.
+ */
+export function getDataQuality() {
+  const d = db();
+  const completeness = d.prepare(`
+    SELECT s.set_id, s.lang, s.name, s.release_date, s.card_count_total AS declared,
+           (SELECT COUNT(*) FROM cards c WHERE c.set_id = s.set_id AND c.lang = s.lang) AS present
+    FROM sets s WHERE s.is_digital = 0 AND s.card_count_total > 0
+    ORDER BY (s.card_count_total - (SELECT COUNT(*) FROM cards c WHERE c.set_id = s.set_id AND c.lang = s.lang)) DESC
+  `).all() as Array<{ set_id: string; lang: string; name: string; release_date: string | null; declared: number; present: number }>;
+
+  const captureDays = d.prepare(
+    "SELECT DISTINCT obs_date FROM price_obs ORDER BY obs_date"
+  ).all() as Array<{ obs_date: string }>;
+
+  const seals = d.prepare(
+    "SELECT COUNT(*) n FROM sqlite_master WHERE type='table'"
+  ).get() as { n: number }; // los sellos viven en fichero, no en la base
+
+  return { completeness, captureDays: captureDays.map((r) => r.obs_date), tables: seals.n };
+}

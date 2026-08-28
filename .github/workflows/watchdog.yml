@@ -1,0 +1,23 @@
+# Vigilante ruidoso + keepalive.
+# Complementa (no sustituye) al dead-man's switch de Healthchecks.io: este job
+# FALLA si falta la captura del dia, y el email nativo de GitHub sobre workflows
+# fallidos actua de segunda alerta gratuita. El paso de keepalive evita que los
+# schedules se desactiven a los 60 dias sin actividad.
+name: vigilante
+on:
+  schedule:
+    - cron: "30 21 * * *"
+  workflow_dispatch:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 1 }
+      - name: existe la captura de hoy
+        run: |
+          DAY=$(date -u +%Y-%m-%d)
+          test -s "data/prices/en/prices_${DAY}.jsonl.gz" || { echo "::error::falta la captura EN de ${DAY}"; exit 1; }
+          test -s "data/prices/ja/prices_${DAY}.jsonl.gz" || { echo "::error::falta la captura JA de ${DAY}"; exit 1; }
+      - name: keepalive
+        run: echo "$(date -u)" > .keepalive && git config user.email bot@cartoteca && git config user.name bot && git add .keepalive && git commit -m "keepalive" && git push || true

@@ -1,0 +1,57 @@
+# Segunda pata de captura, independiente del portatil.
+#
+# INACTIVO hasta que el usuario cree el repositorio remoto y los secretos.
+# Diseno contra los fallos conocidos del cron de Actions:
+#  - los schedules se retrasan horas y se saltan en silencio -> TRES crons el mismo
+#    dia; la reanudacion es idempotente (capture.py salta lo ya capturado)
+#  - la hora del refresco de la fuente (~15:00 UTC) es hipotesis, no constante ->
+#    la guarda de frescura compara el sello del lote con el del dia anterior y
+#    aborta sin error si la fuente aun no refresco (el siguiente cron reintenta)
+#  - los workflows programados se desactivan a los 60 dias sin actividad ->
+#    keepalive semanal en watchdog.yml
+#  - IP de datacenter contra una API gratuita -> ritmo de cortesia (15 rps) y
+#    deteccion de challenges (HTML donde se espera JSON = fuente bloqueada)
+name: captura-diaria
+on:
+  schedule:
+    - cron: "20 15 * * *"   # tras el refresco tipico de la fuente
+    - cron: "20 17 * * *"   # red de seguridad 1
+    - cron: "20 20 * * *"   # red de seguridad 2
+  workflow_dispatch:
+concurrency:
+  group: captura
+  cancel-in-progress: false
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 1 }
+      - name: guarda de frescura
+        id: fresh
+        run: |
+          # Sello del lote hoy vs el ultimo archivado: si no cambio, la fuente
+          # aun no refresco -> salir en verde y que reintente el siguiente cron.
+          NOW=$(curl -fsS --max-time 30 -H "User-Agent: pokemon-card-price/ci" \
+            "https://api.tcgdex.net/v2/en/cards/base1-4" | python3 -c "import sys,json;print((json.load(sys.stdin).get('pricing',{}).get('cardmarket') or {}).get('updated',''))")
+          LAST=$(cat data/last_batch_stamp.txt 2>/dev/null || echo "")
+          echo "now=$NOW last=$LAST"
+          if [ -z "$NOW" ]; then echo "fuente_inaccesible=true" >> "$GITHUB_OUTPUT"; exit 1; fi
+          if [ "$NOW" = "$LAST" ]; then echo "fresh=false" >> "$GITHUB_OUTPUT"; else echo "fresh=true" >> "$GITHUB_OUTPUT"; echo "$NOW" > data/last_batch_stamp.txt; fi
+      - name: captura
+        if: steps.fresh.outputs.fresh == 'true'
+        run: |
+          python3 services/capture/capture.py --languages en,ja --catalog --workers 6 --rps 15
+          python3 services/pipeline/validate.py
+      - name: publicar al archivo
+        if: steps.fresh.outputs.fresh == 'true'
+        env: { ARCHIVE_TOKEN: "${{ secrets.ARCHIVE_TOKEN }}" }
+        run: |
+          # Se empuja al repositorio-archivo privado. Pendiente de: crear el repo
+          # y el token (ver docs/RUNBOOK.md).
+          bash services/backup/push_archive.sh
+      - name: ping healthcheck
+        if: steps.fresh.outputs.fresh == 'true'
+        run: |
+          [ -n "${{ secrets.HEALTHCHECK_URL }}" ] && curl -fsS -m 15 --retry 3 "${{ secrets.HEALTHCHECK_URL }}" || echo "healthcheck sin configurar"

@@ -1,11 +1,20 @@
 #!/bin/bash
-# Redespliega los scripts de captura al runtime del cron.
-#
-# Por que existe esto: macOS TCC impide que launchd lea ficheros bajo ~/Documents
-# ("Operation not permitted"), asi que el cron ejecuta copias alojadas en
-# ~/Library/Application Support, que no esta protegido. Tras editar capture.py
-# o probe_cadence.py hay que ejecutar este script o el cron seguira con la version vieja.
+# Sincroniza el codigo del pipeline al runtime del cron.
+# macOS TCC impide a launchd leer bajo ~/Documents, asi que el cron ejecuta
+# copias en ~/Library/Application Support. Tras editar cualquier servicio,
+# ejecutar esto o el cron seguira corriendo la version vieja.
 set -e
+SRC="$(cd "$(dirname "$0")/../.." && pwd)"
 RT="$HOME/Library/Application Support/pokemon-card-price"
-cp "$(dirname "$0")/capture.py" "$(dirname "$0")/probe_cadence.py" "$RT/bin/"
+mkdir -p "$RT/bin"
+rsync -a --delete "$SRC/services/" "$RT/bin/services/"
+rsync -a "$SRC/tests/" "$RT/bin/tests/"
+# daily.sh espera la estructura del proyecto: se instala un lanzador que la recrea.
+cat > "$RT/bin/daily.sh" <<LAUNCHER
+#!/bin/bash
+export PCP_DATA_DIR="$RT/data"
+export PCP_CODE_DIR="/Users/mplaza/Documents/pokemon-card-price"
+cd "$RT/bin" && exec bash services/pipeline/daily.sh
+LAUNCHER
+chmod +x "$RT/bin/daily.sh"
 echo "desplegado en $RT/bin"

@@ -20,7 +20,7 @@ import re
 import sqlite3
 
 PROJ = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
-DB = os.path.join(PROJ, "data", "pcp.db")
+DB = os.path.join(os.environ.get("PCP_DATA_DIR") or os.path.join(PROJ, "data"), "pcp.db")
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS card_tags (

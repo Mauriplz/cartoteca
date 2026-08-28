@@ -31,7 +31,7 @@ from collections import defaultdict
 from datetime import datetime, timezone
 
 PROJ = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
-DB = os.path.join(PROJ, "data", "pcp.db")
+DB = os.path.join(os.environ.get("PCP_DATA_DIR") or os.path.join(PROJ, "data"), "pcp.db")
 
 # --- Modelo de coste de ida y vuelta -----------------------------------------
 # El envio es un coste FIJO. Por eso el coste porcentual explota a la baja en el
