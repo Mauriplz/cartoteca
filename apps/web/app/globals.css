@@ -1,0 +1,165 @@
+/* Sistema de diseno.
+   Denso como un terminal financiero, pero legible. La tipografia tabular es
+   obligatoria: cuando se comparan cientos de precios en columna, las cifras
+   tienen que alinearse o la vista no puede escanearlas. */
+
+:root {
+  --bg: #fbfbfa;
+  --surface: #ffffff;
+  --surface-2: #f4f4f2;
+  --border: #e3e2de;
+  --border-strong: #cfcdc7;
+  --text: #1a1917;
+  --text-dim: #6b6862;
+  --text-faint: #96938c;
+  --accent: #b4530a;
+  --accent-soft: #fdf0e4;
+  --pos: #1f7a4d;
+  --pos-soft: #e7f4ed;
+  --neg: #a32f2f;
+  --neg-soft: #fbeaea;
+  --radius: 8px;
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+:root:not([data-theme="light"]) {
+  @media (prefers-color-scheme: dark) {
+    --bg: #131311;
+    --surface: #1b1b19;
+    --surface-2: #232320;
+    --border: #2e2e2a;
+    --border-strong: #43423d;
+    --text: #eceae5;
+    --text-dim: #a3a099;
+    --text-faint: #74716b;
+    --accent: #f0954a;
+    --accent-soft: #33230f;
+    --pos: #4cc38a;
+    --pos-soft: #14301f;
+    --neg: #e56b6b;
+    --neg-soft: #331717;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #131311;
+  --surface: #1b1b19;
+  --surface-2: #232320;
+  --border: #2e2e2a;
+  --border-strong: #43423d;
+  --text: #eceae5;
+  --text-dim: #a3a099;
+  --text-faint: #74716b;
+  --accent: #f0954a;
+  --accent-soft: #33230f;
+  --pos: #4cc38a;
+  --pos-soft: #14301f;
+  --neg: #e56b6b;
+  --neg-soft: #331717;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; text-decoration: none; }
+a:hover { color: var(--accent); }
+
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.dim { color: var(--text-dim); }
+.faint { color: var(--text-faint); }
+.pos { color: var(--pos); }
+.neg { color: var(--neg); }
+
+.wrap { max-width: 1280px; margin: 0 auto; padding: 0 20px; }
+
+/* Cabecera */
+.nav {
+  position: sticky; top: 0; z-index: 20;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+.nav-inner { display: flex; align-items: center; gap: 28px; height: 56px; }
+.brand { font-weight: 650; letter-spacing: -0.02em; font-size: 15px; }
+.brand span { color: var(--accent); }
+.nav a.link { color: var(--text-dim); font-size: 13.5px; }
+.nav a.link:hover, .nav a.link[data-active="true"] { color: var(--text); }
+
+/* Superficies */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.pad { padding: 16px; }
+
+/* Tabla densa */
+table.grid { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.grid th {
+  text-align: left; font-weight: 550; color: var(--text-dim);
+  font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 8px 10px; border-bottom: 1px solid var(--border-strong);
+  white-space: nowrap;
+}
+table.grid td { padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+table.grid tr:hover td { background: var(--surface-2); }
+table.grid td.r, table.grid th.r { text-align: right; }
+
+/* Cualquier cosa ancha se desplaza dentro de su caja, nunca el body */
+.scroll-x { overflow-x: auto; }
+
+/* Etiquetas */
+.tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 1px 7px; border-radius: 5px; font-size: 11.5px;
+  background: var(--surface-2); color: var(--text-dim);
+  border: 1px solid var(--border); white-space: nowrap;
+}
+.tag.pos { background: var(--pos-soft); color: var(--pos); border-color: transparent; }
+.tag.neg { background: var(--neg-soft); color: var(--neg); border-color: transparent; }
+.tag.acc { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+
+/* Barra de contribucion de cada senal al compuesto */
+.contrib { display: flex; align-items: center; gap: 6px; }
+.contrib-bar { position: relative; width: 54px; height: 5px; background: var(--surface-2); border-radius: 3px; }
+.contrib-bar i { position: absolute; top: 0; height: 100%; border-radius: 3px; }
+
+/* Rejilla de cartas */
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; }
+.tile img { width: 100%; height: auto; border-radius: 6px; display: block; background: var(--surface-2); }
+.tile .t-name { font-size: 13px; font-weight: 550; margin-top: 8px; line-height: 1.3; }
+.tile .t-meta { font-size: 11.5px; color: var(--text-faint); }
+
+/* Formularios */
+input[type="text"], input[type="number"], select {
+  background: var(--surface); color: var(--text);
+  border: 1px solid var(--border-strong); border-radius: 6px;
+  padding: 6px 9px; font-size: 13px; font-family: inherit;
+}
+input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+h1 { font-size: 22px; font-weight: 650; letter-spacing: -0.02em; margin: 0 0 4px; }
+h2 { font-size: 16px; font-weight: 600; margin: 0 0 10px; }
+.sub { color: var(--text-dim); font-size: 13.5px; margin: 0 0 20px; }
+
+.note {
+  background: var(--surface-2); border-left: 2px solid var(--accent);
+  padding: 10px 14px; border-radius: 0 6px 6px 0;
+  font-size: 12.5px; color: var(--text-dim);
+}
+
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1px;
+         background: var(--border); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.stat { background: var(--surface); padding: 12px 14px; }
+.stat .v { font-family: var(--mono); font-size: 19px; font-weight: 600; letter-spacing: -0.02em; }
+.stat .k { font-size: 11px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px; }

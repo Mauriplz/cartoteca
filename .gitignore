@@ -7,3 +7,5 @@ __pycache__/
 *.pyc
 .DS_Store
 logs/
+apps/web/.next
+apps/web/node_modules

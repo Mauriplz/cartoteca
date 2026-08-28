@@ -114,8 +114,15 @@ def capture_sets(lang, day, throttle):
     n = 0
     with gzip.open(path, "wt", encoding="utf-8") as f:
         for s in index:
-            full = get_json(f"{API}/{lang}/sets/{s['id']}", throttle) or {}
-            if "__error__" in full:
+            # Mismo escollo que en las cartas: los ids llegan url-encoded y algunos
+            # llevan '+' (SM1+, sm2+, SM3+, SM4+, SM5+, sets japoneses reales).
+            # Sin re-codificar, el '+' se interpreta como espacio y la API da 404.
+            sid = urllib.parse.quote(s["id"], safe="")
+            full = get_json(f"{API}/{lang}/sets/{sid}", throttle) or {}
+            # get_json devuelve None ante un 404: sin esta guarda escribiriamos una
+            # fila sin `id`, que rompe el ETL aguas abajo de forma opaca.
+            if "__error__" in full or "id" not in full:
+                print(f"[{lang}] aviso: set {s['id']!r} no recuperable, omitido", file=sys.stderr)
                 continue
             full.pop("cards", None)                      # la lista de cartas ya la tenemos
             full["lang"] = lang
