@@ -22,17 +22,32 @@ export function cardImage(base: string | null, quality: "low" | "high" = "low"):
 /**
  * Resuelve que ilustracion mostrar y de donde sale.
  *
- * `fallbackLang` no nulo significa que la imagen NO es de esta carta sino de su
- * equivalente en otro idioma: mismo arte, distinto texto y marco. Quien la pinte
- * esta obligado a decirlo; es la pantalla donde el usuario decide comprar.
+ * Tres origenes, en orden de fidelidad:
+ *   propia    la carta pedida, desde TCGdex
+ *   alt       la MISMA ilustracion en otra edicion: mismo arte, distinto texto y
+ *             marco. Es otro objeto fisico y quien la pinte esta obligado a decirlo.
+ *   ext       la misma carta desde el CDN de TCGplayer. No necesita advertencia,
+ *             solo constancia de la procedencia.
  */
+export type ImageOrigin = "own" | "alt" | "ext" | "none";
+
 export function resolveImage(
-  card: { image: string | null; image_alt: string | null; image_alt_lang: string | null },
+  card: {
+    image: string | null;
+    image_alt: string | null;
+    image_alt_lang: string | null;
+    image_ext?: string | null;
+    image_ext_src?: string | null;
+  },
   quality: "low" | "high" = "low",
-): { src: string | null; fallbackLang: string | null } {
-  if (card.image) return { src: cardImage(card.image, quality), fallbackLang: null };
-  if (card.image_alt) return { src: cardImage(card.image_alt, quality), fallbackLang: card.image_alt_lang };
-  return { src: null, fallbackLang: null };
+): { src: string | null; origin: ImageOrigin; fallbackLang: string | null; source: string | null } {
+  if (card.image)
+    return { src: cardImage(card.image, quality), origin: "own", fallbackLang: null, source: null };
+  if (card.image_alt)
+    return { src: cardImage(card.image_alt, quality), origin: "alt", fallbackLang: card.image_alt_lang, source: null };
+  if (card.image_ext)
+    return { src: card.image_ext, origin: "ext", fallbackLang: null, source: card.image_ext_src ?? null };
+  return { src: null, origin: "none", fallbackLang: null, source: null };
 }
 
 const VARIANT_ES: Record<string, string> = {

@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { cardHref, variantName } from "@/components/CardTile";
 import { resolveImage } from "@/lib/format";
+import { ArtworkPlaceholder } from "@/components/CardArtwork";
 import {
   LOCALES, coerceLocale, localePath, makeFormatters, pick,
   type Formatters, type Locale,
@@ -275,16 +276,9 @@ export default async function CartaPage(
               }}
             />
           ) : (
-            <div
-              style={{
-                aspectRatio: "5 / 7", width: "100%", borderRadius: 8,
-                background: "var(--surface-2)", border: "1px dashed var(--border-strong)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                color: "var(--text-faint)", fontSize: 12, textAlign: "center", padding: 12,
-              }}
-            >
-              {c.noImage}
-            </div>
+            // Sin ilustracion en ninguna fuente. El marcador lleva la identidad de la
+            // carta sobre el color de su tipo, en vez de un recuadro que no dice nada.
+            <ArtworkPlaceholder card={card} title={c.artwork.none} width={280} fill />
           )}
           {/* La ilustracion prestada es de otra carta: la ficha esta obligada a decirlo. */}
           {fallbackName && (

@@ -13,7 +13,7 @@ const CLEAN = "i.is_digital = 0 AND i.cm_collision = 0";
 const BASE_SELECT = `
   SELECT i.instrument_id, i.card_id, i.lang, i.variant_type, i.variant_subtype,
          c.name, c.illustrator, c.rarity, c.set_id, c.local_id, c.image,
-         c.image_alt, c.image_alt_lang,
+         c.image_alt, c.image_alt_lang, c.image_ext, c.image_ext_src, c.types,
          s.name AS set_name, s.release_date,
          p.cm_trend AS price_eur, p.tcg_market, p.obs_date
   FROM instruments i
@@ -60,7 +60,7 @@ export function getScreener(o: ScreenerOpts = {}): ScoredCard[] {
              i.instrument_id, i.card_id, i.lang, i.variant_type, i.variant_subtype,
              i.cm_variant_ambiguous,
              c.name, c.illustrator, c.rarity, c.set_id, c.local_id, c.image,
-             c.image_alt, c.image_alt_lang,
+             c.image_alt, c.image_alt_lang, c.image_ext, c.image_ext_src, c.types,
              s.name AS set_name, s.release_date,
              p.cm_trend AS price_eur, p.tcg_market, p.obs_date,
              -- Clave de agrupacion: el producto de Cardmarket cuando existe; si no,
@@ -136,6 +136,18 @@ export interface CardsOpts {
   offset?: number;
 }
 
+/**
+ * Explorador de cartas.
+ *
+ * Deduplica por producto de Cardmarket, igual que el ranking. Medido: sin ello el
+ * 48% de las filas son la misma carta al mismo precio repetida una vez por cada
+ * variante que TCGdex declara. Charizard a 4.526,87 EUR aparecia como holo y como
+ * reverse porque Cardmarket publica un unico producto para ambas: no son dos
+ * mercados, es el mismo precio dos veces.
+ *
+ * Cuando las variantes SI tienen producto propio en Cardmarket (y por tanto precio
+ * propio), siguen apareciendo por separado, que es lo correcto.
+ */
 export function getCards(o: CardsOpts = {}): { rows: CardRow[]; total: number } {
   const w: string[] = [CLEAN];
   const a: unknown[] = [];
@@ -147,19 +159,46 @@ export function getCards(o: CardsOpts = {}): { rows: CardRow[]; total: number } 
   if (o.minPrice != null) { w.push("p.cm_trend >= ?"); a.push(o.minPrice); }
 
   const order = {
-    price_desc: "p.cm_trend DESC NULLS LAST",
-    price_asc: "p.cm_trend ASC NULLS LAST",
-    name: "c.name ASC",
-    release_desc: "s.release_date DESC NULLS LAST",
+    price_desc: "price_eur DESC NULLS LAST",
+    price_asc: "price_eur ASC NULLS LAST",
+    name: "name ASC",
+    release_desc: "release_date DESC NULLS LAST",
   }[o.sort ?? "price_desc"];
 
   const where = `WHERE ${w.join(" AND ")}`;
-  const rows = db().prepare(
-    `${BASE_SELECT} ${where} ORDER BY ${order} LIMIT ? OFFSET ?`
-  ).all(...a, o.limit ?? 60, o.offset ?? 0) as CardRow[];
+  const dedupe = "COALESCE('p' || i.cm_id_product, i.instrument_id)";
+
+  const rows = db().prepare(`
+    WITH base AS (
+      SELECT i.instrument_id, i.card_id, i.lang, i.variant_type, i.variant_subtype,
+             i.cm_variant_ambiguous,
+             c.name, c.illustrator, c.rarity, c.set_id, c.local_id, c.image,
+             c.image_alt, c.image_alt_lang, c.image_ext, c.image_ext_src, c.types,
+             s.name AS set_name, s.release_date,
+             p.cm_trend AS price_eur, p.tcg_market, p.obs_date,
+             ${dedupe} AS dedupe_key
+      FROM instruments i
+      JOIN cards c ON c.card_id = i.card_id AND c.lang = i.lang
+      LEFT JOIN sets s ON s.set_id = c.set_id AND s.lang = c.lang
+      LEFT JOIN price_obs p ON p.instrument_id = i.instrument_id
+           AND p.obs_date = (SELECT MAX(obs_date) FROM price_obs WHERE instrument_id = i.instrument_id)
+      ${where}
+    ),
+    ranked AS (
+      SELECT *,
+             -- Se conserva la variante mas representativa: la que tenga precio, y a
+             -- igualdad, la primera por nombre de acabado, para que el orden sea estable.
+             ROW_NUMBER() OVER (PARTITION BY dedupe_key
+                                ORDER BY (price_eur IS NULL), variant_type) AS rn,
+             COUNT(*)     OVER (PARTITION BY dedupe_key) AS variant_count
+      FROM base
+    )
+    SELECT * FROM ranked WHERE rn = 1 ORDER BY ${order} LIMIT ? OFFSET ?
+  `).all(...a, o.limit ?? 60, o.offset ?? 0) as CardRow[];
 
   const total = (db().prepare(`
-    SELECT COUNT(*) n FROM instruments i
+    SELECT COUNT(DISTINCT ${dedupe}) n
+    FROM instruments i
     JOIN cards c ON c.card_id = i.card_id AND c.lang = i.lang
     LEFT JOIN sets s ON s.set_id = c.set_id AND s.lang = c.lang
     LEFT JOIN price_obs p ON p.instrument_id = i.instrument_id

@@ -13,6 +13,13 @@ export interface CommonDict {
   signal: Record<string, { label: string; help: string }>;
   noImage: string;
   noData: string;
+  artwork: {
+    /** La ilustracion viene de otra edicion: es OTRO objeto fisico y hay que decirlo. */
+    borrowed: (lang: string) => string;
+    /** La imagen procede de una fuente externa. Misma carta, solo se anota de donde. */
+    external: (source: string) => string;
+    none: string;
+  };
 }
 
 const es: CommonDict = {
@@ -52,6 +59,11 @@ const es: CommonDict = {
   },
   noImage: "TCGdex no publica imagen de esta carta",
   noData: "sin dato",
+  artwork: {
+    borrowed: (lang) => `Ilustración de la edición en ${lang.toLowerCase()}`,
+    external: (source) => `Imagen de ${source}`,
+    none: "No hay ilustración disponible de esta carta en ninguna de nuestras fuentes",
+  },
 };
 
 const en: CommonDict = {
@@ -91,6 +103,11 @@ const en: CommonDict = {
   },
   noImage: "TCGdex publishes no image for this card",
   noData: "no data",
+  artwork: {
+    borrowed: (lang) => `Artwork from the ${lang} edition`,
+    external: (source) => `Image from ${source}`,
+    none: "No artwork for this card is available from any of our sources",
+  },
 };
 
 const ja: CommonDict = {
@@ -130,6 +147,11 @@ const ja: CommonDict = {
   },
   noImage: "TCGdex はこのカードの画像を公開していません",
   noData: "データなし",
+  artwork: {
+    borrowed: (lang) => `${lang}版のイラストです`,
+    external: (source) => `画像提供: ${source}`,
+    none: "このカードのイラストは、当サイトのどの情報源にもありません",
+  },
 };
 
 export const common: Dict<CommonDict> = { es, en, ja };

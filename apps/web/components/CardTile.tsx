@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import { resolveImage } from "@/lib/format";
+import { ArtworkPlaceholder } from "@/components/CardArtwork";
 import { localePath, makeFormatters, pick, type Locale } from "@/lib/i18n";
 import { cards } from "@/lib/i18n/cards";
 import { common, type CommonDict } from "@/lib/i18n/common";
@@ -81,21 +82,10 @@ export default function CardTile({
       {src ? (
         <img src={src} alt="" loading="lazy" decoding="async" style={{ ...FRAME, objectFit: "cover" }} />
       ) : (
-        <div
-          style={{
-            ...FRAME,
-            background: "var(--surface-2)",
-            border: "1px dashed var(--border-strong)",
-            borderRadius: 6,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 11,
-            color: "var(--text-faint)",
-          }}
-        >
-          {t.tile.noImage}
-        </div>
+        // Sin ilustracion en ninguna fuente: en vez de un recuadro vacio que obliga
+        // a pulsar para saber que hay dentro, se pinta la informacion que la imagen
+        // iba a dar, sobre el color del tipo del Pokemon.
+        <ArtworkPlaceholder card={card} title={c.artwork.none} width={170} fill />
       )}
 
       <div className="t-name" style={CLAMP2}>{name}</div>

@@ -309,6 +309,30 @@ def fill_alt_images(con):
     return n
 
 
+def fill_ext_images(con):
+    """Ultima via para las cartas sin ilustracion: el CDN de TCGplayer.
+
+    Cuando TCGdex no tiene imagen ni existe equivalente en otro idioma, pero el
+    instrumento si tiene productId de TCGplayer, su CDN publica la foto del producto
+    en una URL derivable del identificador. Es la misma carta, no un sustituto, asi
+    que no necesita la advertencia que si lleva la ilustracion prestada de otra
+    edicion; solo se anota la procedencia.
+    """
+    cur = con.execute("""
+        UPDATE cards SET
+          image_ext = 'https://tcgplayer-cdn.tcgplayer.com/product/' ||
+                      (SELECT i.tcg_product_id FROM instruments i
+                       WHERE i.card_id = cards.card_id AND i.lang = cards.lang
+                         AND i.tcg_product_id IS NOT NULL LIMIT 1) || '_in_1000x1000.jpg',
+          image_ext_src = 'tcgplayer'
+        WHERE image IS NULL AND image_alt IS NULL AND is_digital = 0
+          AND EXISTS (SELECT 1 FROM instruments i
+                      WHERE i.card_id = cards.card_id AND i.lang = cards.lang
+                        AND i.tcg_product_id IS NOT NULL)
+    """)
+    return cur.rowcount
+
+
 def mark_collisions(con):
     """Marcas de calidad sobre la identidad de precio.
 
@@ -386,6 +410,7 @@ def main():
     stats = load_prices(con, langs, digital)
 
     n_alt = fill_alt_images(con)
+    n_ext = fill_ext_images(con)
     col, amb = mark_collisions(con)
     con.commit()
 
@@ -397,6 +422,7 @@ def main():
     print(f"    colision carta  : {col:,}  (idProduct compartido con otra carta)")
     print(f"    variante ambigua: {amb:,}  (idProduct compartido entre variantes de la misma carta)")
     print(f"  ilustracion de respaldo (edicion inglesa): {n_alt:,}")
+    print(f"  ilustracion desde TCGplayer              : {n_ext:,}")
     print(f"  observaciones     : {q('SELECT COUNT(*) FROM price_obs'):,}")
     print(f"  dias en archivo   : {q('SELECT COUNT(DISTINCT obs_date) FROM price_obs')}")
     if stats:

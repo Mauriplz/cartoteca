@@ -16,8 +16,16 @@ export interface CardRow {
    *  Es OTRO objeto fisico: la interfaz debe etiquetarla, no hacerla pasar por la propia. */
   image_alt: string | null;
   image_alt_lang: string | null;
+  /** URL completa de una fuente externa (TCGplayer). Ya resuelta, sin sufijo. */
+  image_ext: string | null;
+  image_ext_src: string | null;
+  /** Tipos del Pokemon, JSON. Se usa para colorear el marcador cuando no hay ilustracion. */
+  types: string | null;
   variant_type: string | null;
   variant_subtype: string | null;
+  /** Cuantas variantes comparten producto y precio en Cardmarket. >1 = fila agrupada. */
+  variant_count?: number;
+  cm_variant_ambiguous?: number;
   price_eur: number | null;
   tcg_market: number | null;
   obs_date: string | null;
@@ -27,9 +35,7 @@ export interface ScoredCard extends CardRow {
   score: number;
   components: Record<string, number>;
   roundtrip_cost: number | null;
-  /** Cuantas variantes comparten este mismo producto de Cardmarket y precio. */
   variant_count: number;
-  /** 1 si el precio europeo no distingue entre variantes de la carta. */
   cm_variant_ambiguous: number;
 }
 

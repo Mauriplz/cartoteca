@@ -62,6 +62,11 @@ CREATE TABLE IF NOT EXISTS cards (
   -- la interfaz tiene que decirlo en vez de hacerlo pasar por la carta pedida.
   image_alt       TEXT,
   image_alt_lang  TEXT,
+  -- URL completa de una fuente externa (TCGplayer). A diferencia de `image`, que es
+  -- una base de TCGdex a la que hay que anadir calidad y formato, esta ya es la URL
+  -- final. Se usa solo cuando no hay imagen propia ni equivalente en otro idioma.
+  image_ext       TEXT,
+  image_ext_src   TEXT,
   is_digital      INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (card_id, lang)
 );

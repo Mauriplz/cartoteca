@@ -1,6 +1,7 @@
 import { Fragment } from "react";
 import { getMarketStats, getScreener } from "@/lib/queries";
 import { resolveImage } from "@/lib/format";
+import { ArtworkPlaceholder } from "@/components/CardArtwork";
 import { coerceLocale, localePath, makeFormatters, pick, type Locale } from "@/lib/i18n";
 import { common, type CommonDict } from "@/lib/i18n/common";
 import { ranking, type Frag, type RankingDict } from "@/lib/i18n/ranking";
@@ -419,22 +420,14 @@ export default async function Ranking({
                             }}
                           />
                         ) : (
-                          <div
-                            title={c.noImage}
-                            style={{
-                              width: 34,
-                              height: 47,
-                              borderRadius: 3,
-                              border: "1px dashed var(--border-strong)",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              color: "var(--text-faint)",
-                              fontSize: 10,
-                            }}
-                          >
-                            —
-                          </div>
+                          // Sin ilustracion en ninguna fuente: el marcador lleva el
+                          // nombre y la edicion, para que la fila siga siendo
+                          // identificable sin abrir la ficha.
+                          <ArtworkPlaceholder
+                            card={r}
+                            title={c.artwork.none}
+                            width={34}
+                          />
                         )}
                       </td>
                       <td style={{ maxWidth: 320 }}>
