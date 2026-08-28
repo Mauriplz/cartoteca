@@ -13,6 +13,7 @@ const CLEAN = "i.is_digital = 0 AND i.cm_collision = 0";
 const BASE_SELECT = `
   SELECT i.instrument_id, i.card_id, i.lang, i.variant_type, i.variant_subtype,
          c.name, c.illustrator, c.rarity, c.set_id, c.local_id, c.image,
+         c.image_alt, c.image_alt_lang,
          s.name AS set_name, s.release_date,
          p.cm_trend AS price_eur, p.tcg_market, p.obs_date
   FROM instruments i
@@ -59,6 +60,7 @@ export function getScreener(o: ScreenerOpts = {}): ScoredCard[] {
              i.instrument_id, i.card_id, i.lang, i.variant_type, i.variant_subtype,
              i.cm_variant_ambiguous,
              c.name, c.illustrator, c.rarity, c.set_id, c.local_id, c.image,
+             c.image_alt, c.image_alt_lang,
              s.name AS set_name, s.release_date,
              p.cm_trend AS price_eur, p.tcg_market, p.obs_date,
              -- Clave de agrupacion: el producto de Cardmarket cuando existe; si no,

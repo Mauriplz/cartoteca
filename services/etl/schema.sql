@@ -56,6 +56,12 @@ CREATE TABLE IF NOT EXISTS cards (
   dex_id          TEXT,              -- JSON array
   regulation_mark TEXT,
   image           TEXT,
+  -- Cuando TCGdex no tiene imagen de una carta japonesa pero si de su equivalente
+  -- inglesa (misma ilustracion, distinto texto y marco), se guarda aqui esa URL y
+  -- el idioma del que procede. NO se mezcla con `image`: es otro objeto fisico, y
+  -- la interfaz tiene que decirlo en vez de hacerlo pasar por la carta pedida.
+  image_alt       TEXT,
+  image_alt_lang  TEXT,
   is_digital      INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (card_id, lang)
 );

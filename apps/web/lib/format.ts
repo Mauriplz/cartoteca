@@ -19,6 +19,22 @@ export function cardImage(base: string | null, quality: "low" | "high" = "low"):
   return base ? `${base}/${quality}.webp` : null;
 }
 
+/**
+ * Resuelve que ilustracion mostrar y de donde sale.
+ *
+ * `fallbackLang` no nulo significa que la imagen NO es de esta carta sino de su
+ * equivalente en otro idioma: mismo arte, distinto texto y marco. Quien la pinte
+ * esta obligado a decirlo; es la pantalla donde el usuario decide comprar.
+ */
+export function resolveImage(
+  card: { image: string | null; image_alt: string | null; image_alt_lang: string | null },
+  quality: "low" | "high" = "low",
+): { src: string | null; fallbackLang: string | null } {
+  if (card.image) return { src: cardImage(card.image, quality), fallbackLang: null };
+  if (card.image_alt) return { src: cardImage(card.image_alt, quality), fallbackLang: card.image_alt_lang };
+  return { src: null, fallbackLang: null };
+}
+
 const VARIANT_ES: Record<string, string> = {
   holo: "Holo",
   normal: "Normal",

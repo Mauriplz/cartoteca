@@ -12,6 +12,10 @@ export interface CardRow {
   release_date: string | null;
   local_id: string | null;
   image: string | null;
+  /** Ilustracion de la edicion inglesa, cuando TCGdex no tiene la de esta carta.
+   *  Es OTRO objeto fisico: la interfaz debe etiquetarla, no hacerla pasar por la propia. */
+  image_alt: string | null;
+  image_alt_lang: string | null;
   variant_type: string | null;
   variant_subtype: string | null;
   price_eur: number | null;

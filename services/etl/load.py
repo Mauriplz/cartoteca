@@ -112,6 +112,13 @@ def tcg_block(tcg, vtype=None, vsub=None):
     return {}
 
 
+# Series que no son mercado fisico. Regla por SERIE, no por lista de sets: la lista
+# hay que mantenerla a mano y se queda corta en cuanto sale una entrega nueva. Medido:
+# marcando por lista se colaban 799 cartas de TCG Pocket (B1, B1a, B2, B2a) como
+# mercado fisico, contaminando el explorador y el calculo de cohortes.
+DIGITAL_SERIES = {"tcgp"}
+
+
 def load_dimensions(con, langs):
     """Sets y cartas: se usa la captura MAS RECIENTE de cada uno."""
     digital = set()
@@ -126,7 +133,8 @@ def load_dimensions(con, langs):
                 cc = s.get("cardCount") or {}
                 lg = s.get("legal") or {}
                 sr = s.get("serie") or {}
-                if s.get("is_digital"):
+                es_digital = bool(s.get("is_digital")) or (sr.get("id") in DIGITAL_SERIES)
+                if es_digital:
                     digital.add((s["id"], lang))
                 con.execute(
                     """INSERT INTO sets VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
@@ -137,7 +145,7 @@ def load_dimensions(con, langs):
                      s.get("releaseDate"), cc.get("total"), cc.get("official"),
                      cc.get("holo"), cc.get("reverse"), cc.get("firstEd"),
                      int(bool(lg.get("standard"))), int(bool(lg.get("expanded"))),
-                     int(bool(s.get("is_digital")))),
+                     int(es_digital)),
                 )
                 n_sets += 1
 
@@ -146,7 +154,10 @@ def load_dimensions(con, langs):
             for c in read_jsonl(fc[-1][1]):
                 sid = (c.get("set") or {}).get("id")
                 con.execute(
-                    """INSERT INTO cards VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    """INSERT INTO cards (card_id, lang, set_id, local_id, name, illustrator,
+                                          rarity, category, stage, evolve_from, hp, types, dex_id,
+                                          regulation_mark, image, is_digital)
+                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                        ON CONFLICT(card_id, lang) DO UPDATE SET
                          name=excluded.name, illustrator=excluded.illustrator,
                          rarity=excluded.rarity, is_digital=excluded.is_digital""",
@@ -263,6 +274,41 @@ def load_prices(con, langs, digital):
     return stats
 
 
+def fill_alt_images(con):
+    """Respaldo de ilustracion para cartas japonesas sin imagen propia.
+
+    Se empareja por (dexId, ilustrador) exigiendo correspondencia 1-a-1 en ambos
+    sentidos, la misma regla estricta que usa la senal JP/EN: con varias candidatas
+    a cada lado no sabriamos cual es cual, y adivinar seria peor que no mostrar nada.
+
+    Se guarda aparte de `image` a proposito. La carta inglesa es OTRO objeto fisico
+    -mismo arte, distinto texto y marco-, asi que la interfaz debe presentarla como
+    referencia visual y decir de donde sale. Hacerla pasar por la carta japonesa
+    seria enganar al usuario justo en la pantalla donde decide comprar.
+    """
+    def index(lang, con_img):
+        cond = "image IS NOT NULL" if con_img else "image IS NULL"
+        d = {}
+        for r in con.execute(
+            f"""SELECT card_id, dex_id, illustrator, image FROM cards
+                WHERE lang = ? AND is_digital = 0 AND dex_id IS NOT NULL
+                  AND illustrator IS NOT NULL AND {cond}""", (lang,)):
+            d.setdefault((r[1], r[2]), []).append(r)
+        return d
+
+    faltan = index("ja", False)
+    tienen = index("en", True)
+    n = 0
+    for key, ja_rows in faltan.items():
+        en_rows = tienen.get(key)
+        if not en_rows or len(ja_rows) != 1 or len(en_rows) != 1:
+            continue
+        con.execute("UPDATE cards SET image_alt = ?, image_alt_lang = 'en' WHERE card_id = ? AND lang = 'ja'",
+                    (en_rows[0][3], ja_rows[0][0]))
+        n += 1
+    return n
+
+
 def mark_collisions(con):
     """Marcas de calidad sobre la identidad de precio.
 
@@ -314,9 +360,32 @@ def main():
     con.commit()
     print(f"  sets: {n_sets:,} | cartas: {n_cards:,} | sets digitales: {len(digital)}")
 
+    # Imagenes recuperadas por reconstruccion de URL. TCGdex deja el campo `image`
+    # a null en muchas cartas (sobre todo japonesas) aunque su CDN si sirve el fichero,
+    # asi que resolve_images.py las verifica una a una y guarda el resultado aparte.
+    # Se aplican aqui porque comprobar diez mil URLs cuesta minutos y no debe repetirse
+    # en cada recarga: es dato capturado, no dato derivado.
+    img_path = os.path.join(DATA, "image_resolution.jsonl")
+    if os.path.exists(img_path):
+        n_img = 0
+        with open(img_path, encoding="utf-8") as f:
+            for line in f:
+                try:
+                    r = json.loads(line)
+                except Exception:
+                    continue
+                if r.get("url"):
+                    cur = con.execute(
+                        "UPDATE cards SET image = ? WHERE card_id = ? AND lang = ? AND image IS NULL",
+                        (r["url"], r["card_id"], r["lang"]))
+                    n_img += cur.rowcount
+        con.commit()
+        print(f"  imagenes recuperadas y aplicadas: {n_img:,}")
+
     print("=== precios ===")
     stats = load_prices(con, langs, digital)
 
+    n_alt = fill_alt_images(con)
     col, amb = mark_collisions(con)
     con.commit()
 
@@ -327,6 +396,7 @@ def main():
     print(f"    digitales       : {q('SELECT COUNT(*) FROM instruments WHERE is_digital=1'):,}  (excluidos aguas abajo)")
     print(f"    colision carta  : {col:,}  (idProduct compartido con otra carta)")
     print(f"    variante ambigua: {amb:,}  (idProduct compartido entre variantes de la misma carta)")
+    print(f"  ilustracion de respaldo (edicion inglesa): {n_alt:,}")
     print(f"  observaciones     : {q('SELECT COUNT(*) FROM price_obs'):,}")
     print(f"  dias en archivo   : {q('SELECT COUNT(DISTINCT obs_date) FROM price_obs')}")
     if stats:

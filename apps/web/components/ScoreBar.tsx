@@ -1,5 +1,7 @@
 import type { CSSProperties } from "react";
-import { SIGNAL_META } from "@/lib/format";
+import { pick, type Locale } from "@/lib/i18n";
+import { common } from "@/lib/i18n/common";
+import { ranking } from "@/lib/i18n/ranking";
 
 /**
  * Desglose de la puntuacion de inversion.
@@ -10,11 +12,22 @@ import { SIGNAL_META } from "@/lib/format";
  *
  * Los valores son z-scores con el signo ya orientado por la capa de senales:
  * positivo = empuja la puntuacion hacia arriba. Llegan recortados a +/-3.
+ *
+ * El componente recibe el idioma, no los textos: todo lo que dice son etiquetas
+ * de senal y frases de tooltip que ya viven en los diccionarios. Pasarlos por
+ * props serian cinco cadenas por columna y un contrato que hay que rehacer cada
+ * vez que se anade una senal; con el locale, la tabla solo dice en que idioma
+ * habla y el componente se sirve solo.
  */
 
 export const SIGNAL_ORDER = ["cohort_pct", "artist_premium", "jp_en_ratio", "eu_us_arb"];
 
-/** Abreviatura de cada senal. Se explica en la leyenda que acompana a la tabla. */
+/**
+ * Abreviatura de cada senal. No se traduce: son codigos de columna de cuatro o
+ * cinco caracteres que tienen que caber igual en los tres idiomas y alinearse
+ * con la cabecera. Su significado se explica al lado, en la leyenda, y eso si
+ * esta traducido.
+ */
 export const SIGNAL_SHORT: Record<string, string> = {
   cohort_pct: "COH",
   artist_premium: "ART",
@@ -29,25 +42,33 @@ const BAR_W = 44;
 const VAL_W = 34;
 const COL_W = BAR_W + 6 + VAL_W; // 6px = gap de .contrib
 
-const Z = new Intl.NumberFormat("es-ES", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-  signDisplay: "always",
-});
+const NUM_TAG: Record<Locale, string> = { es: "es-ES", en: "en-US", ja: "ja-JP" };
+
+/**
+ * Z-scores y puntuacion: dos decimales fijos para que la columna quede alineada.
+ * No sale de makeFormatters porque alli num() usa el formato por defecto, y aqui
+ * hacen falta los dos decimales siempre —y el signo siempre, en las barras—.
+ * Lo que si cambia por idioma es el separador decimal: 1,23 en espanol, 1.23 en
+ * ingles y en japones.
+ */
+export function makeScoreFormat(locale: Locale) {
+  const tag = NUM_TAG[locale];
+  const opts: Intl.NumberFormatOptions = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+  const zFmt = new Intl.NumberFormat(tag, { ...opts, signDisplay: "always" });
+  const scoreFmt = new Intl.NumberFormat(tag, opts);
+  return {
+    /** Contribucion de una senal: siempre con signo. */
+    z: (v: number) => zFmt.format(v),
+    /** Puntuacion agregada: sin signo forzado. */
+    score: (v: number) => scoreFmt.format(v),
+  };
+}
 
 type Meta = { label: string; help: string };
 
-export function signalMeta(key: string): Meta | undefined {
-  return (SIGNAL_META as Record<string, Meta | undefined>)[key];
-}
-
-/** Une etiqueta y explicacion sin duplicar el punto de "EE. UU.". */
-function frase(...partes: Array<string | undefined>): string {
-  return partes
-    .map((p) => (p ?? "").trim())
-    .filter((p) => p !== "")
-    .map((p) => (/[.!?]$/.test(p) ? p : `${p}.`))
-    .join(" ");
+/** Etiqueta y explicacion de una senal, en el idioma pedido. */
+export function signalMeta(key: string, locale: Locale): Meta | undefined {
+  return pick(common, locale).signal[key];
 }
 
 export function signalShort(key: string): string {
@@ -79,13 +100,18 @@ function grid(n: number): CSSProperties {
 }
 
 /** Cabecera alineada columna a columna con las barras de las filas. */
-export function ScoreBarHeader({ keys }: { keys: string[] }) {
+export function ScoreBarHeader({ keys, locale }: { keys: string[]; locale: Locale }) {
+  const t = pick(ranking, locale);
   return (
     <div style={grid(keys.length)}>
       {keys.map((k) => {
-        const m = signalMeta(k);
+        const m = signalMeta(k, locale);
         return (
-          <span key={k} title={m ? frase(m.label, m.help) : k} style={{ cursor: "help" }}>
+          <span
+            key={k}
+            title={m ? t.bars.headerTitle({ label: m.label, help: m.help }) : k}
+            style={{ cursor: "help" }}
+          >
             {signalShort(k)}
           </span>
         );
@@ -97,10 +123,15 @@ export function ScoreBarHeader({ keys }: { keys: string[] }) {
 export default function ScoreBar({
   components,
   keys = SIGNAL_ORDER,
+  locale,
 }: {
   components: Record<string, number>;
   keys?: string[];
+  locale: Locale;
 }) {
+  const t = pick(ranking, locale);
+  const fmt = makeScoreFormat(locale);
+
   return (
     <div style={grid(keys.length)}>
       {keys.map((k) => {
@@ -112,16 +143,18 @@ export default function ScoreBar({
           ? components[k]
           : undefined;
         const v = typeof raw === "number" && Number.isFinite(raw) ? raw : null;
-        const m = signalMeta(k);
+        const m = signalMeta(k, locale);
         const name = m?.label ?? k;
 
         const title =
           v === null
-            ? `${name}: sin dato para esta carta, no entra en el promedio.`
-            : frase(
-                `${name}: ${Z.format(v)} z${Math.abs(v) >= CLIP ? " (recortado)" : ""}`,
-                m?.help,
-              );
+            ? t.bars.noData(name)
+            : t.bars.value({
+                label: name,
+                z: fmt.z(v),
+                clipped: Math.abs(v) >= CLIP,
+                help: m?.help ?? "",
+              });
 
         // Barra divergente: el centro de la caja es el cero.
         const half = v === null ? 0 : Math.min(Math.abs(v) / CLIP, 1) * 50;
@@ -137,7 +170,7 @@ export default function ScoreBar({
                 : "var(--neg)";
 
         return (
-          <span key={k} className="contrib" title={title} style={{ cursor: "help" }}>
+          <span key={k} className="contrib" title={title.trim()} style={{ cursor: "help" }}>
             <span className="contrib-bar" style={{ width: BAR_W, flexShrink: 0 }}>
               <i
                 style={{
@@ -162,7 +195,7 @@ export default function ScoreBar({
               className="num faint"
               style={{ width: VAL_W, flexShrink: 0, textAlign: "right", fontSize: 10.5 }}
             >
-              {v === null ? "·" : Z.format(v)}
+              {v === null ? "·" : fmt.z(v)}
             </span>
           </span>
         );
