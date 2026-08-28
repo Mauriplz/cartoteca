@@ -20,7 +20,7 @@ import { ranking } from "@/lib/i18n/ranking";
  * habla y el componente se sirve solo.
  */
 
-export const SIGNAL_ORDER = ["cohort_pct", "artist_premium", "jp_en_ratio", "eu_us_arb"];
+export const SIGNAL_ORDER = ["cohort_pct", "artist_premium", "jp_en_ratio", "market_divergence"];
 
 /**
  * Abreviatura de cada senal. No se traduce: son codigos de columna de cuatro o
@@ -32,7 +32,7 @@ export const SIGNAL_SHORT: Record<string, string> = {
   cohort_pct: "COH",
   artist_premium: "ART",
   jp_en_ratio: "JP/EN",
-  eu_us_arb: "EU/US",
+  market_divergence: "EU/US",
 };
 
 /** Recorte de la capa de senales. Un valor en 3,00 esta topado, no es exacto. */

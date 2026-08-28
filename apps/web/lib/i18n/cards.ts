@@ -206,6 +206,77 @@ export interface CardsDict {
       ) => string;
     };
 
+    /**
+     * Grafico de trayectoria de precio. Se parte en dos porque los dos dibujos
+     * dicen cosas de naturaleza distinta y mezclarlos seria mentir: `levels` son
+     * las medias de la fuente, ventanas SOLAPADAS hacia atras desde hoy, que se
+     * situan como marcadores sobre un eje de precio; `archive` son nuestras
+     * mediciones diarias, que si van sobre un eje temporal real.
+     */
+    trajectory: {
+      h2: string;
+      sub: string;
+      /** Ni medias ni observaciones: no hay nada que dibujar. */
+      none: string;
+
+      levels: {
+        h3: string;
+        /** <title> y <desc> del SVG, para quien no ve el dibujo. */
+        svgTitle: string;
+        svgDesc: (trend: string, avg7: string, avg30: string) => string;
+        /** Nombre de cada marcador, dentro del dibujo y en la tabla de respaldo. */
+        label: { trend: string; avg7: string; avg30: string };
+        statVs7: string;
+        statVs30: string;
+        /**
+         * La lectura de un vistazo. `days` es la ventana de la media contra la
+         * que se compara, en cifras: hoy 30, o 7 si no hay media de 30.
+         */
+        reading: {
+          above: (pct: string, days: string) => string;
+          below: (pct: string, days: string) => string;
+          level: (days: string) => string;
+        };
+        /** Por que los marcadores no van unidos por una linea. Lleva <em> dentro. */
+        windowsA: string;
+        windowsEm: string;
+        windowsB: string;
+        /** Sin tendencia o sin ninguna media: no hay «respecto a» que dibujar. */
+        none: string;
+      };
+
+      archive: {
+        h3: string;
+        svgTitle: string;
+        svgDesc: (n: number, s: string, from: string, to: string) => string;
+        none: string;
+        /**
+         * Pie del grafico. Dice dos cifras distintas y las separa: cuantos dias
+         * medidos tiene ESTA carta, y cuantos dias tiene el archivo propio ENTERO.
+         * No promete ninguna cadencia: el archivo tiene los dias que tiene.
+         */
+        foot: (
+          n: number,
+          s: string,
+          from: string,
+          archiveDays: number,
+          archiveDaysStr: string,
+          firstDay: string,
+        ) => string;
+        noLine: (n: number, s: string) => string;
+      };
+
+      table: {
+        summary: string;
+        capLevels: string;
+        capArchive: string;
+        thWhat: string;
+        thValue: string;
+        thVsRef: string;
+        thDate: string;
+      };
+    };
+
     footer: { before: string; link: string; after: string };
 
     /** Cifra destacada de cada senal, en la etiqueta de la cabecera. */
@@ -480,7 +551,63 @@ const es: CardsDict = {
       thAvg30: "Media 30 d (EUR)",
       thTcg: "TCGplayer (USD)",
       note: (n, s, from, to, firstDay) =>
-        `${s} ${n === 1 ? "observación propia" : "observaciones propias"}, del ${from} al ${to}. Se muestran como tabla y no como gráfico a propósito: con ${s} ${n === 1 ? "punto" : "puntos"} una línea de tendencia sería un dibujo, no un dato. Las medias de 7 y 30 días las publica Cardmarket con su propio histórico; no salen de este archivo, que empezó el ${firstDay}.`,
+        `${s} ${n === 1 ? "observación propia" : "observaciones propias"}, del ${from} al ${to}. Son las mismas que están dibujadas arriba, punto a punto y sin unir: con ${s} ${n === 1 ? "punto" : "puntos"} una línea de tendencia sería un dibujo, no un dato. Las medias de 7 y 30 días las publica Cardmarket con su propio histórico; no salen de este archivo, que empezó el ${firstDay}.`,
+    },
+
+    trajectory: {
+      h2: "Trayectoria del precio",
+      sub: "Dos cosas de naturaleza distinta, y por eso no van en el mismo trazo: dónde cotiza hoy frente a las medias que publica Cardmarket, y las mediciones diarias de nuestro propio archivo.",
+      none: "No hay ni medias de la fuente ni observaciones propias para esta carta: no hay nada que dibujar.",
+
+      levels: {
+        h3: "Dónde cotiza hoy frente a sus medias",
+        svgTitle:
+          "Precio actual y medias de 7 y 30 días, situados como marcadores sobre un eje de precio",
+        svgDesc: (trend, avg7, avg30) =>
+          `Tendencia actual ${trend}. Media de 7 días ${avg7}. Media de 30 días ${avg30}. La referencia vertical es la media más larga disponible.`,
+        label: {
+          trend: "tendencia actual",
+          avg7: "media 7 días",
+          avg30: "media 30 días",
+        },
+        statVs7: "Frente a su media de 7 días",
+        statVs30: "Frente a su media de 30 días",
+        reading: {
+          above: (pct, days) =>
+            `El precio actual está un ${pct} por encima de su media de ${days} días.`,
+          below: (pct, days) =>
+            `El precio actual está un ${pct} por debajo de su media de ${days} días.`,
+          level: (days) => `El precio actual coincide con su media de ${days} días.`,
+        },
+        windowsA: "Las medias de 7 y de 30 días son ",
+        windowsEm: "ventanas solapadas",
+        windowsB:
+          " calculadas hacia atrás desde hoy, no cotizaciones de días sucesivos: por eso aparecen como marcadores sobre un eje de precio y no unidas por una línea, que sería un histórico inventado. El color indica la dirección del movimiento reciente, no una recomendación: cotizar por encima de la media no dice si conviene comprar.",
+        none: "La última observación no trae suficientes valores para situar el precio: hacen falta al menos la tendencia actual y una de las dos medias.",
+      },
+
+      archive: {
+        h3: "Nuestras observaciones diarias",
+        svgTitle:
+          "Observaciones propias de precio sobre un eje temporal, dibujadas como puntos sueltos",
+        svgDesc: (n, s, from, to) =>
+          `${s} ${n === 1 ? "observación" : "observaciones"} de la tendencia de Cardmarket en euros, ${n === 1 ? "el" : "del"} ${from}${n === 1 ? "" : ` al ${to}`}. Los puntos no están unidos por ninguna línea.`,
+        none: "Todavía no hay ninguna observación con precio en euros para esta carta.",
+        foot: (n, s, from, archiveDays, archiveDaysStr, firstDay) =>
+          `${s} ${n === 1 ? "día medido" : "días medidos"} de esta carta, ${n === 1 ? "el" : "desde el"} ${from}. El archivo propio tiene ${archiveDaysStr} ${archiveDays === 1 ? "día" : "días"} en total, desde el ${firstDay}: no hay nada anterior con lo que comparar. `,
+        noLine: (n, s) =>
+          `No se traza ninguna línea entre los puntos: con ${s} ${n === 1 ? "observación" : "observaciones"} una línea de tendencia sería un dibujo, no una medición.`,
+      },
+
+      table: {
+        summary: "Ver los mismos números en tabla",
+        capLevels: "Precio actual y medias de la fuente",
+        capArchive: "Observaciones propias",
+        thWhat: "Medida",
+        thValue: "Valor",
+        thVsRef: "Frente a la referencia",
+        thDate: "Fecha",
+      },
     },
 
     footer: {
@@ -771,7 +898,63 @@ const en: CardsDict = {
       thAvg30: "30-day avg. (EUR)",
       thTcg: "TCGplayer (USD)",
       note: (n, s, from, to, firstDay) =>
-        `${s} ${n === 1 ? "observation" : "observations"} of our own, from ${from} to ${to}. They are shown as a table and not as a chart on purpose: with ${s} ${n === 1 ? "point" : "points"} a trend line would be a drawing, not a measurement. The 7- and 30-day averages are published by Cardmarket out of its own history; they do not come from this archive, which started on ${firstDay}.`,
+        `${s} ${n === 1 ? "observation" : "observations"} of our own, from ${from} to ${to}. They are the same ones plotted above, point by point and never joined: with ${s} ${n === 1 ? "point" : "points"} a trend line would be a drawing, not a measurement. The 7- and 30-day averages are published by Cardmarket out of its own history; they do not come from this archive, which started on ${firstDay}.`,
+    },
+
+    trajectory: {
+      h2: "Price trajectory",
+      sub: "Two things of a different nature, which is why they never share a line: where it trades today against the averages Cardmarket publishes, and the daily measurements from our own archive.",
+      none: "There are neither source averages nor observations of our own for this card: there is nothing to plot.",
+
+      levels: {
+        h3: "Where it trades today against its averages",
+        svgTitle:
+          "Current price and 7- and 30-day averages, placed as markers on a price axis",
+        svgDesc: (trend, avg7, avg30) =>
+          `Current trend ${trend}. 7-day average ${avg7}. 30-day average ${avg30}. The vertical reference is the longest average available.`,
+        label: {
+          trend: "current trend",
+          avg7: "7-day average",
+          avg30: "30-day average",
+        },
+        statVs7: "Against its 7-day average",
+        statVs30: "Against its 30-day average",
+        reading: {
+          above: (pct, days) =>
+            `The current price sits ${pct} above its ${days}-day average.`,
+          below: (pct, days) =>
+            `The current price sits ${pct} below its ${days}-day average.`,
+          level: (days) => `The current price matches its ${days}-day average.`,
+        },
+        windowsA: "The 7- and 30-day averages are ",
+        windowsEm: "overlapping windows",
+        windowsB:
+          " computed backwards from today, not quotes from consecutive days: that is why they are markers on a price axis and not joined by a line, which would be a fabricated history. The colour shows the direction of the recent move, not a recommendation: trading above the average does not say whether it is worth buying.",
+        none: "The latest observation does not carry enough values to place the price: at least the current trend and one of the two averages are needed.",
+      },
+
+      archive: {
+        h3: "Our own daily observations",
+        svgTitle:
+          "Our own price observations on a time axis, drawn as separate points",
+        svgDesc: (n, s, from, to) =>
+          `${s} ${n === 1 ? "observation" : "observations"} of the Cardmarket trend in euros, ${n === 1 ? `on ${from}` : `from ${from} to ${to}`}. The points are not joined by any line.`,
+        none: "There is no observation with a euro price for this card yet.",
+        foot: (n, s, from, archiveDays, archiveDaysStr, firstDay) =>
+          `${s} measured ${n === 1 ? "day" : "days"} for this card, ${n === 1 ? "on" : "since"} ${from}. Our own archive holds ${archiveDaysStr} ${archiveDays === 1 ? "day" : "days"} in total, since ${firstDay}: there is nothing earlier to compare against. `,
+        noLine: (n, s) =>
+          `No line is drawn between the points: with ${s} ${n === 1 ? "observation" : "observations"} a trend line would be a drawing, not a measurement.`,
+      },
+
+      table: {
+        summary: "See the same figures as a table",
+        capLevels: "Current price and source averages",
+        capArchive: "Observations of our own",
+        thWhat: "Measure",
+        thValue: "Value",
+        thVsRef: "Against the reference",
+        thDate: "Date",
+      },
     },
 
     footer: {
@@ -1058,7 +1241,59 @@ const ja: CardsDict = {
       thAvg30: "30日平均（EUR）",
       thTcg: "TCGplayer（USD）",
       note: (_n, s, from, to, firstDay) =>
-        `自前の観測は${s}件、${from}から${to}まで。あえてグラフではなく表で示しています。${s}点で引いたトレンド線は、データではなく絵にすぎないからです。7日平均と30日平均は Cardmarket が自社の履歴から公開している値で、${firstDay}に始まったこのアーカイブによるものではありません。`,
+        `自前の観測は${s}件、${from}から${to}まで。上のグラフに描いてあるのと同じ点で、線でつないではいません。${s}点で引いたトレンド線は、データではなく絵にすぎないからです。7日平均と30日平均は Cardmarket が自社の履歴から公開している値で、${firstDay}に始まったこのアーカイブによるものではありません。`,
+    },
+
+    trajectory: {
+      h2: "価格の推移",
+      sub: "性質の異なる2つを、同じ線にはしていません。Cardmarket が公開する平均に対する現在の位置と、自前のアーカイブによる日次の実測です。",
+      none: "このカードには提供元の平均も自前の観測もありません。描けるものがありません。",
+
+      levels: {
+        h3: "現在の価格と平均の位置関係",
+        svgTitle: "現在価格と7日・30日平均を、価格軸上のマーカーとして配置した図",
+        svgDesc: (trend, avg7, avg30) =>
+          `現在のトレンド ${trend}。7日平均 ${avg7}。30日平均 ${avg30}。縦の基準線は、利用できるうち最も長い平均です。`,
+        label: {
+          trend: "現在のトレンド",
+          avg7: "7日平均",
+          avg30: "30日平均",
+        },
+        statVs7: "7日平均との差",
+        statVs30: "30日平均との差",
+        reading: {
+          above: (pct, days) => `現在の価格は${days}日平均を${pct}上回っています。`,
+          below: (pct, days) => `現在の価格は${days}日平均を${pct}下回っています。`,
+          level: (days) => `現在の価格は${days}日平均とほぼ同じです。`,
+        },
+        windowsA: "7日平均と30日平均は、今日から過去にさかのぼって計算した",
+        windowsEm: "期間の重なる窓",
+        windowsB:
+          "であり、連続した日の相場ではありません。だから価格軸上のマーカーとして置き、線でつないでいません。つなげば、存在しない履歴を捏造することになります。色は直近の値動きの向きを示すだけで、推奨ではありません。平均より高いことは、買うべきかどうかを何も語りません。",
+        none: "最新の観測には価格を位置づけるだけの値がありません。少なくとも現在のトレンドと、2つの平均のうち1つが必要です。",
+      },
+
+      archive: {
+        h3: "自前の日次観測",
+        svgTitle: "自前の価格観測を時間軸上に、独立した点として描いた図",
+        svgDesc: (n, s, from, to) =>
+          `ユーロ建て Cardmarket トレンドの観測${s}件（${n === 1 ? from : `${from}から${to}まで`}）。点は線でつないでいません。`,
+        none: "このカードにはユーロ建て価格の観測がまだ1件もありません。",
+        foot: (_n, s, from, _archiveDays, archiveDaysStr, firstDay) =>
+          `このカードの実測は${s}日分（${from}以降）です。自前のアーカイブは全体で${archiveDaysStr}日分（${firstDay}以降）しかなく、それ以前のデータはありません。`,
+        noLine: (_n, s) =>
+          `点と点は線でつないでいません。${s}件の観測で引いたトレンド線は、測定ではなく絵にすぎないからです。`,
+      },
+
+      table: {
+        summary: "同じ数値を表で見る",
+        capLevels: "現在価格と提供元の平均",
+        capArchive: "自前の観測",
+        thWhat: "項目",
+        thValue: "値",
+        thVsRef: "基準との差",
+        thDate: "日付",
+      },
     },
 
     footer: {

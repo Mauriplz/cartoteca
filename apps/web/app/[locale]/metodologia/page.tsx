@@ -65,8 +65,8 @@ export default async function MetodologiaPage({
     { label: c.signal.artist_premium.label, id: "artist_premium", ...t.signals.artist },
     { label: c.signal.jp_en_ratio.label, id: "jp_en_ratio", ...t.signals.jpEn },
     {
-      label: c.signal.eu_us_arb.label,
-      id: "eu_us_arb",
+      label: c.signal.market_divergence.label,
+      id: "market_divergence",
       measures: t.signals.arb.measures(f.num(s.arbs)),
       bounds: t.signals.arb.bounds,
     },
@@ -77,7 +77,7 @@ export default async function MetodologiaPage({
     { label: c.signal.cohort_pct.label, sign: "−", why: t.composite.why.cohort },
     { label: c.signal.artist_premium.label, sign: "+", why: t.composite.why.artist },
     { label: c.signal.jp_en_ratio.label, sign: "+", why: t.composite.why.jpEn },
-    { label: c.signal.eu_us_arb.label, sign: "+", why: t.composite.why.arb },
+    { label: c.signal.market_divergence.label, sign: "+", why: t.composite.why.arb },
   ];
 
   const marks = [t.marks.trend, t.marks.settle, t.marks.low, t.marks.lastDay, t.marks.stamp];
@@ -495,9 +495,9 @@ function Formula({ children }: { children: React.ReactNode }) {
  * no repita a mano una cifra que el motor ya haya recalculado.
  */
 function readFx(): { rate: number; date: string } | null {
-  const arb = getScreener({ limit: 100 }).find((x) => x.components.eu_us_arb !== undefined);
+  const arb = getScreener({ limit: 100 }).find((x) => x.components.market_divergence !== undefined);
   if (!arb) return null;
-  const sig = getCardSignals(arb.instrument_id).find((x) => x.signal === "eu_us_arb");
+  const sig = getCardSignals(arb.instrument_id).find((x) => x.signal === "market_divergence");
   const rate = sig?.detail["fx_eurusd"];
   const date = sig?.detail["fx_date"];
   if (typeof rate !== "number") return null;

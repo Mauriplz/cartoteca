@@ -126,6 +126,8 @@ export function countScreener(o: ScreenerOpts = {}): number {
 
 export interface CardsOpts {
   q?: string;
+  /** Etiqueta de edicion especial: collab:*, exclusive:*, event:*, anniversary:*, promo... */
+  tag?: string;
   lang?: string;
   set?: string;
   rarity?: string;
@@ -151,7 +153,24 @@ export interface CardsOpts {
 export function getCards(o: CardsOpts = {}): { rows: CardRow[]; total: number } {
   const w: string[] = [CLEAN];
   const a: unknown[] = [];
-  if (o.q) { w.push("c.name LIKE ?"); a.push(`%${o.q}%`); }
+  if (o.q) {
+    // La busqueda no puede mirar solo el nombre de la carta. El Pikachu del Museo
+    // Van Gogh se llama oficialmente "Pikachu with Grey Felt Hat" y la exclusiva de
+    // Pokemon Center se llama "Special Delivery Pikachu": quien busca "van gogh" o
+    // "pokemon center" no encontraria ninguna de las dos. Se busca ademas por
+    // ilustrador, por edicion, por numero de carta y por sinonimo curado.
+    w.push(`(c.name LIKE ? OR c.illustrator LIKE ? OR s.name LIKE ? OR c.card_id LIKE ?
+             OR EXISTS (SELECT 1 FROM card_aliases al
+                        WHERE al.card_id = c.card_id AND al.lang = c.lang
+                          AND al.alias LIKE ?))`);
+    const like = `%${o.q}%`;
+    a.push(like, like, like, like, `%${o.q.toLowerCase()}%`);
+  }
+  if (o.tag) {
+    w.push(`EXISTS (SELECT 1 FROM card_tags t
+                    WHERE t.card_id = c.card_id AND t.lang = c.lang AND t.tag = ?)`);
+    a.push(o.tag);
+  }
   if (o.lang) { w.push("i.lang = ?"); a.push(o.lang); }
   if (o.set) { w.push("c.set_id = ?"); a.push(o.set); }
   if (o.rarity) { w.push("c.rarity = ?"); a.push(o.rarity); }
@@ -238,6 +257,54 @@ export function getPriceHistory(instrumentId: string) {
   }>;
 }
 
+/**
+ * Trayectoria de precio de un instrumento.
+ *
+ * Devuelve dos cosas que NO deben mezclarse en el mismo trazo:
+ *
+ *  - `observations`: nuestras propias observaciones diarias. Son mediciones puntuales
+ *    en fechas concretas. El archivo empezo el 25/08/2026, asi que hoy son pocas.
+ *
+ *  - `aggregates`: las medias que publica Cardmarket. NO son puntos de una serie:
+ *    avg30 es la media de los ultimos 30 dias y avg7 la de los ultimos 7, con las
+ *    ventanas solapadas. Se exponen con su ventana declarada para que quien pinte
+ *    las situe en el centroide de su periodo y no las una con una linea como si
+ *    fueran cotizaciones sucesivas. Dicen la DIRECCION del movimiento reciente, que
+ *    es informacion real y util, pero no una serie temporal.
+ */
+export function getPriceTrajectory(instrumentId: string) {
+  const observations = db().prepare(
+    `SELECT obs_date, cm_trend, tcg_market FROM price_obs
+     WHERE instrument_id = ? ORDER BY obs_date`
+  ).all(instrumentId) as Array<{ obs_date: string; cm_trend: number | null; tcg_market: number | null }>;
+
+  const last = db().prepare(
+    `SELECT obs_date, cm_trend, cm_avg, cm_avg1, cm_avg7, cm_avg30, cm_low, tcg_market
+     FROM price_obs WHERE instrument_id = ? ORDER BY obs_date DESC LIMIT 1`
+  ).get(instrumentId) as {
+    obs_date: string; cm_trend: number | null; cm_avg: number | null;
+    cm_avg1: number | null; cm_avg7: number | null; cm_avg30: number | null;
+    cm_low: number | null; tcg_market: number | null;
+  } | undefined;
+
+  const aggregates = last
+    ? ([
+        { key: "avg30", windowDays: 30, value: last.cm_avg30 },
+        { key: "avg7", windowDays: 7, value: last.cm_avg7 },
+        { key: "trend", windowDays: 0, value: last.cm_trend },
+      ] as const).filter((a) => a.value != null).map((a) => ({ ...a, value: a.value as number }))
+    : [];
+
+  // Direccion reciente: donde esta la tendencia frente a la media de 30 dias.
+  // Es la lectura honesta que se puede dar hoy sin historico propio.
+  const drift =
+    last?.cm_trend != null && last.cm_avg30 != null && last.cm_avg30 > 0
+      ? last.cm_trend / last.cm_avg30 - 1
+      : null;
+
+  return { observations, aggregates, drift, asOf: last?.obs_date ?? null };
+}
+
 /** Otras variantes de la misma carta (holo, reverse, 1ª edición...). */
 export function getSiblingVariants(cardId: string, lang: string) {
   return db().prepare(`${BASE_SELECT} WHERE ${CLEAN} AND i.card_id = ? AND i.lang = ?
@@ -250,6 +317,43 @@ export function getArtists(minN = 30): ArtistPremium[] {
     `SELECT artist, n, raw_mean, shrunk, weight FROM artist_premium
      WHERE n >= ? ORDER BY shrunk DESC`
   ).all(minN) as ArtistPremium[];
+}
+
+/** Etiquetas de edicion especial disponibles, con cuantas cartas tienen precio. */
+export function getSpecialTags() {
+  return db().prepare(`
+    SELECT t.tag, COUNT(DISTINCT t.card_id || t.lang) n,
+           MAX(p.cm_trend) max_price
+    FROM card_tags t
+    JOIN cards c ON c.card_id = t.card_id AND c.lang = t.lang AND c.is_digital = 0
+    LEFT JOIN instruments i ON i.card_id = c.card_id AND i.lang = c.lang
+    LEFT JOIN price_obs p ON p.instrument_id = i.instrument_id
+    GROUP BY t.tag ORDER BY max_price DESC NULLS LAST
+  `).all() as Array<{ tag: string; n: number; max_price: number | null }>;
+}
+
+/** Etiquetas de una carta concreta. */
+export function getCardTags(cardId: string, lang: string): string[] {
+  return (db().prepare(
+    "SELECT tag FROM card_tags WHERE card_id = ? AND lang = ? ORDER BY tag"
+  ).all(cardId, lang) as Array<{ tag: string }>).map((r) => r.tag);
+}
+
+/**
+ * Completitud del catalogo por edicion. TCGdex declara cuantas cartas tiene cada set
+ * y a veces no publica ninguna: 72 sets estan anunciados y vacios, entre ellos alguno
+ * japones importante. Se mide y se enseña en vez de dejar que el usuario descubra el
+ * hueco buscando una carta que deberia estar.
+ */
+export function getCatalogCompleteness() {
+  const r = db().prepare(`
+    SELECT SUM(s.card_count_total) declared,
+           SUM((SELECT COUNT(*) FROM cards c WHERE c.set_id = s.set_id AND c.lang = s.lang)) present,
+           SUM(CASE WHEN (SELECT COUNT(*) FROM cards c
+                          WHERE c.set_id = s.set_id AND c.lang = s.lang) = 0 THEN 1 ELSE 0 END) empty_sets
+    FROM sets s WHERE s.is_digital = 0 AND s.card_count_total > 0
+  `).get() as { declared: number; present: number; empty_sets: number };
+  return { ...r, missing: r.declared - r.present };
 }
 
 export function getFilterOptions() {
@@ -288,6 +392,6 @@ export function getMarketStats() {
     firstDay: (d.prepare("SELECT MIN(obs_date) v FROM price_obs").get() as { v: string }).v,
     sets: one("SELECT COUNT(*) v FROM sets WHERE is_digital = 0"),
     jpEnPairs: one("SELECT COUNT(*) v FROM signals WHERE signal='jp_en_ratio' AND as_of = ?", asOf),
-    arbs: one("SELECT COUNT(*) v FROM signals WHERE signal='eu_us_arb' AND as_of = ?", asOf),
+    arbs: one("SELECT COUNT(*) v FROM signals WHERE signal='market_divergence' AND as_of = ?", asOf),
   };
 }

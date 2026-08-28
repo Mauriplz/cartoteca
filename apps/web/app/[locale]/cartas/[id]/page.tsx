@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { cardHref, variantName } from "@/components/CardTile";
 import { resolveImage } from "@/lib/format";
 import { ArtworkPlaceholder } from "@/components/CardArtwork";
+import PriceTrajectory from "@/components/PriceTrajectory";
 import {
   LOCALES, coerceLocale, localePath, makeFormatters, pick,
   type Formatters, type Locale,
@@ -11,7 +12,8 @@ import {
 import { cards as cardsDict, type CardsDict } from "@/lib/i18n/cards";
 import { common, type CommonDict } from "@/lib/i18n/common";
 import {
-  getCard, getCardSignals, getMarketStats, getPriceHistory, getSiblingVariants,
+  getCard, getCardSignals, getMarketStats, getPriceHistory, getPriceTrajectory,
+  getSiblingVariants,
 } from "@/lib/queries";
 import type { CardRow, SignalDetail } from "@/lib/types";
 
@@ -201,7 +203,7 @@ function headline(s: SignalDetail, ctx: Ctx): { text: string; tone: string } {
         text: h.jpEnRatio(ctx.dec(s.value, s.value < 0.1 ? 3 : 2)),
         tone: s.value >= 1.2 ? "pos" : s.value <= 0.8 ? "neg" : "",
       };
-    case "eu_us_arb":
+    case "market_divergence":
       return { text: h.euUsArb(ctx.f.pct(s.value, 1)), tone: s.value > 0 ? "pos" : "neg" };
     case "roundtrip_cost":
       return { text: ctx.f.pct(s.value, 1), tone: s.value <= 0.25 ? "pos" : "neg" };
@@ -228,6 +230,7 @@ export default async function CartaPage(
   const signals = getCardSignals(card.instrument_id);
   const siblings = getSiblingVariants(card.card_id, card.lang);
   const history = getPriceHistory(card.instrument_id);
+  const trajectory = getPriceTrajectory(card.instrument_id);
   const stats = getMarketStats();
 
   const name = card.name ?? card.card_id;
@@ -237,12 +240,12 @@ export default async function CartaPage(
   const fallbackName =
     fallbackLang === "en" || fallbackLang === "ja" ? c.langName[fallbackLang] : fallbackLang;
 
-  const arb = signals.find((s) => s.signal === "eu_us_arb");
+  const arb = signals.find((s) => s.signal === "market_divergence");
   const usdInEur = arb ? num(arb.detail, "usd_in_eur") : null;
   const fx = arb ? num(arb.detail, "fx_eurusd") : null;
   const roundtrip = signals.find((s) => s.signal === "roundtrip_cost");
 
-  const ORDER = ["invest_score", "roundtrip_cost", "cohort_pct", "artist_premium", "jp_en_ratio", "eu_us_arb"];
+  const ORDER = ["invest_score", "roundtrip_cost", "cohort_pct", "artist_premium", "jp_en_ratio", "market_divergence"];
   const ordered = [...signals].sort((a, b) => {
     const ia = ORDER.indexOf(a.signal), ib = ORDER.indexOf(b.signal);
     return (ia < 0 ? ORDER.length : ia) - (ib < 0 ? ORDER.length : ib) || a.signal.localeCompare(b.signal);
@@ -403,6 +406,21 @@ export default async function CartaPage(
           </div>
         </div>
       </div>
+
+      {/* ------------------------------------------------------- trayectoria */}
+      {/*
+        Lo primero que se busca al abrir una carta es si sube o si baja. Va aquí,
+        pegado al precio, y no al final: es la lectura que el usuario viene a
+        hacer. Lo que dibuja son dos cosas distintas —las medias solapadas de la
+        fuente sobre un eje de precio, y nuestras mediciones diarias sobre un eje
+        temporal—, nunca unidas en un mismo trazo.
+      */}
+      <PriceTrajectory
+        trajectory={trajectory}
+        locale={locale}
+        archiveDays={stats.days}
+        firstDay={stats.firstDay}
+      />
 
       {/* ------------------------------------------------------------ señales */}
       <h2 style={{ marginTop: 32 }}>{t.detail.signals.h2}</h2>
@@ -786,7 +804,7 @@ function SignalDetailBody(
     );
   }
 
-  if (sig.signal === "eu_us_arb") {
+  if (sig.signal === "market_divergence") {
     const e = num(d, "eur"), u = num(d, "usd"), uEur = num(d, "usd_in_eur");
     const gross = num(d, "gross_spread_pct"), cost = num(d, "roundtrip_cost_pct");
     const fx = num(d, "fx_eurusd"), fxDate = str(d, "fx_date");

@@ -79,7 +79,7 @@ export const SIGNAL_META: Record<string, { label: string; help: string }> = {
     label: "Ratio Japón / Inglés",
     help: "Precio de la versión japonesa dividido por el de la inglesa. El mercado japonés se adelanta unos 56 días de mediana.",
   },
-  eu_us_arb: {
+  market_divergence: {
     label: "Arbitraje Europa / EE. UU.",
     help: "Diferencial entre Cardmarket y TCGplayer que sobrevive al tipo de cambio y a los costes de ida y vuelta.",
   },

@@ -191,36 +191,52 @@ def sig_artist(rows, pct, as_of):
 #
 # Un diferencial real entre Europa y Estados Unidos en un coleccionable liquido se
 # mueve en decenas de puntos porcentuales, no en multiplos. Cuando dos fuentes
-# discrepan por mas de este factor, la explicacion casi nunca es una ineficiencia
-# de mercado: es que no estan describiendo el mismo objeto. Publicarlo como
-# oportunidad seria el fallo mas visible posible para cualquier coleccionista.
-ARB_MIN_RATIO = 0.40
-ARB_MAX_RATIO = 2.50
+# discrepan por mas de este factor la explicacion casi nunca es una ineficiencia:
+# es que no estan describiendo el mismo objeto.
+#
+# Medido: al fijar el techo en 2,5x, los ocho mayores "arbitrajes" quedaban pegados
+# al techo (2,44-2,50x). Eso no es una distribucion de oportunidades, es la cola de
+# una distribucion de desajustes recortada por el limite. Se estrecha a +/-60%.
+ARB_MIN_RATIO = 0.625
+ARB_MAX_RATIO = 1.60
 
 
 def sig_eu_us(rows, fx, fx_date, as_of):
     """Arbitraje entre el mercado europeo (Cardmarket, EUR) y el estadounidense
     (TCGplayer, USD llevado a euros).
 
-    Dos guardas, ambas nacidas de haber medido el problema:
+    La correccion mas importante de esta senal: NO se publica el diferencial bruto,
+    sino su desviacion respecto al DESFASE SISTEMATICO entre las dos fuentes.
 
-    1. Se excluyen los instrumentos con `cm_variant_ambiguous`: TCGdex adjunta el
-       producto entero de Cardmarket a todas las variantes de una carta, asi que
-       para 15.020 instrumentos el precio europeo no distingue reverse de normal
-       aunque el americano si. Comparar ahi es comparar objetos distintos.
+    Por que. La mediana del cociente entre ambos mercados es ~1,3x sobre cientos de
+    instrumentos. Eso no significa que haya un 30% de beneficio esperando en todas
+    las cartas: significa que las dos fuentes miden bases distintas. El `trend` de
+    Cardmarket promedia todos los estados de conservacion, mientras el `market` de
+    TCGplayer corresponde tipicamente a Near Mint. Publicar ese desfase como
+    beneficio seria vender como oportunidad lo que es una diferencia de definicion.
 
-    2. Banda de plausibilidad. Aun con la variante bien mapeada quedan desajustes
-       de origen (impresiones distintas bajo un mismo producto). Un factor de 20x
-       no es una oportunidad, es una senal de que las dos fuentes hablan de cosas
-       distintas.
+    Y una advertencia que va dentro de la propia senal: esto NO se publica como
+    oportunidad de arbitraje. Medido por epocas, la desviacion mediana es del 25% en
+    cartas modernas y del 37% en vintage. Ninguna de las dos cifras es creible como
+    ineficiencia de mercado en un bien liquido: lo que domina es que las dos fuentes
+    no siempre describen la misma impresion ni el mismo estado de conservacion
+    (el `trend` de Cardmarket promedia todos los estados, el `market` de TCGplayer
+    corresponde tipicamente a Near Mint). Estrechar la banda solo desplaza donde
+    aparecen los falsos: los mayores valores siempre quedan pegados al techo.
 
-    Solo se publica lo que ademas sobrevive al coste de ida y vuelta: un
-    diferencial del 15% en una carta de 8 EUR no es una oportunidad, es ruido que
-    los portes se comen entero.
+    Por eso la senal se llama DIVERGENCIA, no arbitraje, y por eso NO entra en la
+    puntuacion de inversion. Sirve para senalar cartas donde los dos mercados
+    discrepan y merece la pena mirar a mano, que es informacion util y honesta.
+
+    Ademas se excluyen los instrumentos con `cm_variant_ambiguous`: para ellos el
+    precio europeo no distingue entre acabados aunque el americano si, asi que la
+    comparacion no es entre los mismos objetos.
     """
     if not fx:
-        return [], 0
-    out, descartados = [], 0
+        return [], 0, None
+
+    # Primera pasada: los pares comparables y su cociente.
+    pares, descartados = [], 0
     for r in rows:
         eu, us = r["cm_trend"], r["tcg_market"]
         if not eu or not us or eu <= 0:
@@ -228,27 +244,39 @@ def sig_eu_us(rows, fx, fx_date, as_of):
         if r["cm_variant_ambiguous"]:
             descartados += 1
             continue
-        us_eur = us / fx
-        ratio = us_eur / eu
+        ratio = (us / fx) / eu
         if not (ARB_MIN_RATIO <= ratio <= ARB_MAX_RATIO):
             descartados += 1
             continue
-        spread = ratio - 1.0
+        pares.append((r, eu, us / fx, ratio))
+
+    if len(pares) < 30:
+        return [], descartados, None
+
+    # El desfase sistematico entre las dos fuentes. Todo se mide contra esto.
+    base = st.median([p[3] for p in pares])
+
+    out = []
+    for r, eu, us_eur, ratio in pares:
+        # Exceso sobre el desfase estructural: lo unico que puede ser oportunidad.
+        excess = ratio / base - 1.0
         cost = roundtrip_cost(min(eu, us_eur))
         if cost is None or cost > COST_CEILING:
             continue
-        net = abs(spread) - cost
+        net = abs(excess) - cost
         if net <= 0:
             continue
-        out.append((r["instrument_id"], as_of, "eu_us_arb", net,
-                    json.dumps({"eur": round(eu, 2), "usd": round(us, 2),
+        out.append((r["instrument_id"], as_of, "market_divergence", net,
+                    json.dumps({"eur": round(eu, 2), "usd": round(r["tcg_market"], 2),
                                 "usd_in_eur": round(us_eur, 2),
-                                "gross_spread_pct": round(100 * spread, 1),
+                                "ratio": round(ratio, 3),
+                                "market_basis": round(base, 3),
+                                "excess_pct": round(100 * excess, 1),
                                 "roundtrip_cost_pct": round(100 * cost, 1),
-                                "direction": "comprar en EU, vender en US" if spread > 0
+                                "direction": "comprar en EU, vender en US" if excess > 0
                                              else "comprar en US, vender en EU",
                                 "fx_eurusd": fx, "fx_date": fx_date})))
-    return out, descartados
+    return out, descartados, base
 
 
 def sig_jp_en(rows, as_of):
@@ -333,14 +361,13 @@ def sig_invest_score(con, as_of):
       +z(artist_premium) ilustrador con prima historica -> demanda estructural
       +z(jp_en_ratio)    su gemela japonesa cotiza mas alto -> margen de convergencia,
                          con el japones adelantando ~56 dias al ingles
-      +z(eu_us_arb)      diferencial entre mercados que sobrevive a los costes
 
     El cruce importante es cohort_pct BAJO con artist_premium ALTO: un ilustrador
     caro cuya carta cotiza barata dentro de su cohorte. La prima del artista por si
     sola no da alfa, porque ya esta dentro del precio.
     """
     sigs = {}
-    for name in ("cohort_pct", "artist_premium", "jp_en_ratio", "eu_us_arb"):
+    for name in ("cohort_pct", "artist_premium", "jp_en_ratio"):
         rows = con.execute(
             "SELECT instrument_id, value FROM signals WHERE signal=? AND as_of=?",
             (name, as_of)).fetchall()
@@ -365,7 +392,9 @@ def sig_invest_score(con, as_of):
         return {i: max(-3.0, min(3.0, (v - m) / sd)) for i, v in vals.items()}   # winsorizado
 
     Z = {n: z_of(n) for n in sigs}
-    SIGN = {"cohort_pct": -1.0, "artist_premium": 1.0, "jp_en_ratio": 1.0, "eu_us_arb": 1.0}
+    # market_divergence NO entra: no sabemos separar la oportunidad real del desajuste
+    # entre fuentes, y un factor que mezcla ambas cosas solo mete ruido en el ranking.
+    SIGN = {"cohort_pct": -1.0, "artist_premium": 1.0, "jp_en_ratio": 1.0}
 
     out = []
     for iid in universe:
@@ -406,12 +435,20 @@ def main():
     all_sigs += coh
     art_sigs, art_rows = sig_artist(rows, pct, as_of)
     all_sigs += art_sigs
-    arb, arb_desc = sig_eu_us(rows, fx, fx_date, as_of)
+    arb, arb_desc, arb_base = sig_eu_us(rows, fx, fx_date, as_of)
     all_sigs += arb
-    print(f"  arbitraje EU/US: {len(arb):,} publicados | {arb_desc:,} descartados "
+    if arb_base:
+        print(f"  desfase sistematico US/EU medido: {arb_base:.3f}x "
+              f"(diferencia de base entre fuentes, NO es beneficio)")
+    print(f"  divergencia EU/US: {len(arb):,} publicados | {arb_desc:,} descartados "
           f"por variante ambigua o ratio fuera de banda [{ARB_MIN_RATIO}-{ARB_MAX_RATIO}x]")
     all_sigs += sig_jp_en(rows, as_of)
 
+    # Borrar las senales del dia antes de reescribir. Con INSERT OR REPLACE solo se
+    # sustituyen las claves que vuelven a aparecer: si una senal deja de emitirse para
+    # un instrumento (porque cambio un filtro o un umbral), su fila antigua sobrevive
+    # y convive con las nuevas. Eso ya produjo detalles con esquemas mezclados.
+    con.execute("DELETE FROM signals WHERE as_of = ?", (as_of,))
     con.executemany("INSERT OR REPLACE INTO signals VALUES (?,?,?,?,?)", all_sigs)
     con.commit()
     # El compuesto se calcula sobre las senales ya escritas.

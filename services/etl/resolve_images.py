@@ -99,6 +99,7 @@ def main():
     con.row_factory = sqlite3.Row
     series = {(r["set_id"], r["lang"]): r["serie_id"]
               for r in con.execute("SELECT set_id, lang, serie_id FROM sets")}
+    known_sets = set(series.keys())
 
     faltan = con.execute("""
         SELECT card_id, lang, set_id, local_id FROM cards
@@ -124,26 +125,48 @@ def main():
     t0 = time.time()
     f = open(OUT, "a", encoding="utf-8")
 
-    def work(r):
+    def candidates(r):
+        """URLs a probar, en orden.
+
+        Los subsets guardan sus imagenes bajo el set PADRE. Verificado:
+        swsh12.5gg/GG50 da 404, pero swsh12.5/GG50 da 200 — la Galarian Gallery
+        vive dentro de Crown Zenith. Lo mismo pasa con otros sets derivados, asi
+        que se prueban los padres candidatos quitando el sufijo alfabetico final.
+        """
         se = series.get((r["set_id"], r["lang"]))
         if not se:
-            with lock:
-                stats["err"] += 1
-            return
-        # Los ids de set pueden llevar caracteres que hay que codificar (SM1+ y similares).
-        url = (f"https://assets.tcgdex.net/{r['lang']}/"
-               f"{urllib.parse.quote(se, safe='')}/"
-               f"{urllib.parse.quote(r['set_id'], safe='')}/"
-               f"{urllib.parse.quote(str(r['local_id']), safe='')}")
-        hit = exists(url, throttle)
+            return []
+        sid = r["set_id"]
+        cands = [sid]
+        # Padres candidatos: swsh12.5gg -> swsh12.5 ; SM12a -> SM12 ; cel25cc -> cel25
+        stripped = sid
+        while stripped and stripped[-1].isalpha():
+            stripped = stripped[:-1]
+            if stripped and stripped != sid and (stripped, r["lang"]) in known_sets:
+                cands.append(stripped)
+        q = urllib.parse.quote
+        return [
+            f"https://assets.tcgdex.net/{r['lang']}/{q(se, safe='')}/{q(c, safe='')}/{q(str(r['local_id']), safe='')}"
+            for c in cands
+        ]
+
+    def work(r):
+        hit_url, saw_error = None, False
+        for url in candidates(r):
+            hit = exists(url, throttle)
+            if hit:
+                hit_url = url
+                break
+            if hit is None:
+                saw_error = True
         row = {"card_id": r["card_id"], "lang": r["lang"],
-               "url": url if hit else None,
+               "url": hit_url,
                "checked_at": datetime.now(timezone.utc).isoformat()}
         with lock:
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
-            stats["ok" if hit else ("err" if hit is None else "no")] += 1
+            stats["ok" if hit_url else ("err" if saw_error else "no")] += 1
             n = sum(stats.values())
-            if n % 2000 == 0:
+            if n % 1500 == 0:
                 el = time.time() - t0
                 print(f"  {n:,}/{len(pendientes):,}  encontradas {stats['ok']:,}  "
                       f"({n/el:.0f}/s, ETA {(len(pendientes)-n)/(n/el)/60:.1f} min)", flush=True)

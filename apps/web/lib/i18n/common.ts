@@ -44,9 +44,9 @@ const es: CommonDict = {
       label: "Ratio Japón / Inglés",
       help: "Precio de la versión japonesa dividido por el de la inglesa. El mercado japonés se adelanta unos 56 días de mediana.",
     },
-    eu_us_arb: {
-      label: "Arbitraje Europa / EE. UU.",
-      help: "Diferencial entre Cardmarket y TCGplayer que sobrevive al tipo de cambio y a los costes de ida y vuelta.",
+    market_divergence: {
+      label: "Divergencia entre mercados",
+      help: "Cuánto se aparta esta carta del desfase habitual entre Cardmarket y TCGplayer. No es una oportunidad de arbitraje: buena parte de estas diferencias son impresiones o estados de conservación distintos, no precios distintos por lo mismo. Sirve para señalar cartas que merece la pena mirar a mano, y por eso no entra en la puntuación.",
     },
     roundtrip_cost: {
       label: "Coste de ida y vuelta",
@@ -88,9 +88,9 @@ const en: CommonDict = {
       label: "Japan / English ratio",
       help: "Japanese price divided by the English one. The Japanese market leads by a median of 56 days.",
     },
-    eu_us_arb: {
-      label: "Europe / US arbitrage",
-      help: "Gap between Cardmarket and TCGplayer that survives the exchange rate and round-trip costs.",
+    market_divergence: {
+      label: "Market divergence",
+      help: "How far this card sits from the usual gap between Cardmarket and TCGplayer. It is not an arbitrage opportunity: a large share of these differences are different printings or conditions rather than different prices for the same thing. It flags cards worth checking by hand, which is why it does not feed the score.",
     },
     roundtrip_cost: {
       label: "Round-trip cost",
@@ -132,9 +132,9 @@ const ja: CommonDict = {
       label: "日本版 / 英語版 比率",
       help: "日本版価格を英語版価格で割った値。日本市場は中央値で約56日先行する。",
     },
-    eu_us_arb: {
-      label: "欧州 / 米国 裁定",
-      help: "為替と往復コストを差し引いても残る Cardmarket と TCGplayer の価格差。",
+    market_divergence: {
+      label: "市場間の乖離",
+      help: "Cardmarket と TCGplayer の通常の価格差から、このカードがどれだけ離れているか。裁定機会ではありません。差の多くは同じものの価格差ではなく、印刷違いや状態の違いによるものです。手で確認する価値のあるカードを示す指標であり、そのためスコアには算入していません。",
     },
     roundtrip_cost: {
       label: "往復コスト",
