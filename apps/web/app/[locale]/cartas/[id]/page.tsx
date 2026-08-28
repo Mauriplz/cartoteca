@@ -5,12 +5,15 @@ import { cardHref, variantName } from "@/components/CardTile";
 import { resolveImage } from "@/lib/format";
 import { ArtworkPlaceholder } from "@/components/CardArtwork";
 import PriceTrajectory from "@/components/PriceTrajectory";
+import WatchlistButton from "@/components/WatchlistButton";
+import JsonLdCard from "@/components/JsonLdCard";
 import {
   LOCALES, coerceLocale, localePath, makeFormatters, pick,
   type Formatters, type Locale,
 } from "@/lib/i18n";
 import { cards as cardsDict, type CardsDict } from "@/lib/i18n/cards";
 import { common, type CommonDict } from "@/lib/i18n/common";
+import { user } from "@/lib/i18n/user";
 import {
   getCard, getCardSignals, getMarketStats, getPriceHistory, getPriceTrajectory,
   getSiblingVariants,
@@ -253,6 +256,7 @@ export default async function CartaPage(
 
   return (
     <>
+      <JsonLdCard card={card} />
       <p style={{ fontSize: 12.5, margin: "0 0 12px" }} className="dim">
         <a href={localePath(locale, "cartas")} style={LINK}>{c.nav.cards}</a>
         {card.set_id && (
@@ -296,7 +300,12 @@ export default async function CartaPage(
 
         {/* Columna de identidad y precios */}
         <div style={{ flex: "1 1 420px", minWidth: 0 }}>
-          <h1 style={{ marginBottom: 8 }}>{name}</h1>
+          {/* La estrella es una isla de cliente: la watchlist vive en localStorage
+              y el servidor solo le pasa el id y las etiquetas ya traducidas. */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 8 }}>
+            <h1 style={{ marginBottom: 0 }}>{name}</h1>
+            <WatchlistButton instrumentId={card.instrument_id} labels={pick(user, locale).watch} />
+          </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16 }}>
             <span className="tag acc">{variant}</span>
             <span className="tag">{language}</span>

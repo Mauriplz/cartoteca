@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "../globals.css";
+import "../responsive.css";
 import { LOCALES, LOCALE_NAMES, coerceLocale, localePath, pick, type Locale } from "@/lib/i18n";
 import { common } from "@/lib/i18n/common";
 
@@ -52,10 +53,12 @@ export default async function RootLayout({
   const t = pick(common, locale);
 
   const nav = [
+    { href: localePath(locale, "mercado"), label: t.nav.market },
     { href: localePath(locale), label: t.nav.ranking },
     { href: localePath(locale, "cartas"), label: t.nav.cards },
     { href: localePath(locale, "ilustradores"), label: t.nav.artists },
     { href: localePath(locale, "metodologia"), label: t.nav.methodology },
+    { href: localePath(locale, "cartera"), label: t.nav.portfolio },
   ];
 
   return (

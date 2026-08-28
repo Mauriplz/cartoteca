@@ -1,0 +1,45 @@
+/*
+ * Ajustes responsive ADITIVOS para pantallas estrechas. Solo layout:
+ * los colores y tokens viven en globals.css y aqui no se redefinen.
+ * El orquestador importa este fichero despues de globals.css.
+ */
+
+@media (max-width: 720px) {
+  /* Tipografia base un punto mas compacta en movil. */
+  body {
+    font-size: 13.5px;
+  }
+
+  /* Cabecera: los enlaces desbordan en pantallas estrechas; se desplazan
+     en horizontal en vez de romper linea o desaparecer. */
+  .nav-inner {
+    overflow-x: auto;
+    white-space: nowrap;
+    gap: 18px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .nav-inner::-webkit-scrollbar {
+    display: none;
+  }
+  .nav-inner > * {
+    flex: 0 0 auto;
+  }
+
+  /* Bloques de estadisticas: dos columnas fijas en vez de auto-fit. */
+  .stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Tablas: ya viven dentro de .scroll-x; con menos padding caben mas
+     columnas antes de necesitar el desplazamiento. */
+  table.grid th,
+  table.grid td {
+    padding: 6px 7px;
+  }
+
+  /* Rejilla de baldosas: minimo mas estrecho para que quepan dos por fila. */
+  .tiles {
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  }
+}

@@ -6,7 +6,7 @@ import type { Dict } from "./index";
  */
 export interface CommonDict {
   brand: { a: string; b: string };
-  nav: { ranking: string; cards: string; artists: string; methodology: string };
+  nav: { ranking: string; cards: string; artists: string; methodology: string; market: string; portfolio: string };
   langName: { en: string; ja: string };
   variant: Record<string, string>;
   variantNone: string;
@@ -24,7 +24,7 @@ export interface CommonDict {
 
 const es: CommonDict = {
   brand: { a: "Carto", b: "teca" },
-  nav: { ranking: "Ranking", cards: "Cartas", artists: "Ilustradores", methodology: "Metodología" },
+  nav: { ranking: "Ranking", cards: "Cartas", artists: "Ilustradores", methodology: "Metodología", market: "Mercado hoy", portfolio: "Cartera" },
   langName: { en: "Inglés", ja: "Japonés" },
   variant: {
     holo: "Holo", normal: "Normal", reverse: "Reverse", firstEdition: "1ª edición",
@@ -68,7 +68,7 @@ const es: CommonDict = {
 
 const en: CommonDict = {
   brand: { a: "Carto", b: "teca" },
-  nav: { ranking: "Ranking", cards: "Cards", artists: "Illustrators", methodology: "Methodology" },
+  nav: { ranking: "Ranking", cards: "Cards", artists: "Illustrators", methodology: "Methodology", market: "Market today", portfolio: "Portfolio" },
   langName: { en: "English", ja: "Japanese" },
   variant: {
     holo: "Holo", normal: "Normal", reverse: "Reverse", firstEdition: "1st Edition",
@@ -112,7 +112,7 @@ const en: CommonDict = {
 
 const ja: CommonDict = {
   brand: { a: "Carto", b: "teca" },
-  nav: { ranking: "ランキング", cards: "カード", artists: "イラストレーター", methodology: "算出方法" },
+  nav: { ranking: "ランキング", cards: "カード", artists: "イラストレーター", methodology: "算出方法", market: "今日の市場", portfolio: "ポートフォリオ" },
   langName: { en: "英語", ja: "日本語" },
   variant: {
     holo: "ホロ", normal: "ノーマル", reverse: "リバース", firstEdition: "初版",
