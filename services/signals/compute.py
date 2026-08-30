@@ -50,17 +50,18 @@ def roundtrip_cost(price):
 
 
 def fetch_fx():
-    """EUR/USD del BCE. Publico y gratuito. Si falla, la senal eu_us se omite:
-    preferimos no publicar una senal a publicarla con un tipo inventado."""
+    """Tipos del BCE (EUR base). USD para la divergencia entre mercados; JPY ademas
+    para la divisa de visualizacion de la web. Si falla, la senal se omite:
+    preferimos no publicar a publicar con un tipo inventado."""
     try:
-        url = "https://api.frankfurter.dev/v1/latest?base=EUR&symbols=USD"
+        url = "https://api.frankfurter.dev/v1/latest?base=EUR&symbols=USD,JPY"
         req = urllib.request.Request(url, headers={"User-Agent": "pokemon-card-price/0.1"})
         with urllib.request.urlopen(req, timeout=20) as r:
             d = json.loads(r.read())
-        return float(d["rates"]["USD"]), d.get("date")
+        return float(d["rates"]["USD"]), d.get("date"), d["rates"]
     except Exception as e:
-        print(f"  aviso: FX no disponible ({e}); se omite la senal eu_us")
-        return None, None
+        print(f"  aviso: FX no disponible ({e}); se omite la senal de divergencia")
+        return None, None, None
 
 
 SCHEMA = """
@@ -74,6 +75,15 @@ CREATE TABLE IF NOT EXISTS signals (
 );
 CREATE INDEX IF NOT EXISTS idx_sig ON signals(signal, value);
 CREATE INDEX IF NOT EXISTS idx_sig_inst ON signals(instrument_id);
+
+-- Tipos de cambio del dia (BCE), para la capa de visualizacion de la web.
+CREATE TABLE IF NOT EXISTS fx_rates (
+  as_of TEXT NOT NULL,
+  quote TEXT NOT NULL,          -- USD, JPY (base EUR)
+  rate  REAL NOT NULL,
+  fx_date TEXT,                 -- fecha del BCE, que puede ir por detras del dia
+  PRIMARY KEY (as_of, quote)
+);
 
 CREATE TABLE IF NOT EXISTS artist_premium (
   artist    TEXT PRIMARY KEY,
@@ -425,9 +435,12 @@ def main():
     rows = latest_prices(con)
     print(f"=== instrumentos limpios con precio: {len(rows):,} ===")
 
-    fx, fx_date = fetch_fx()
+    fx, fx_date, all_rates = fetch_fx()
     if fx:
         print(f"  EUR/USD = {fx} ({fx_date})")
+        for q, rate in (all_rates or {}).items():
+            con.execute("INSERT OR REPLACE INTO fx_rates VALUES (?,?,?,?)",
+                        (as_of, q, float(rate), fx_date))
 
     all_sigs = []
     all_sigs += sig_universe(rows, as_of)

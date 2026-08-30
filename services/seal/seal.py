@@ -67,8 +67,31 @@ def last_seal():
     return last
 
 
+def upgrade_pending():
+    """Completa las pruebas OTS pendientes.
+
+    ots stamp deja la prueba 'pending' hasta que el calendario agrega el hash en
+    Bitcoin (~un dia). ots upgrade la sustituye por la atestacion completa, que ya
+    es verificable sin depender del calendario. Se intenta cada dia para todos los
+    sellos: idempotente, y un fallo de red no rompe nada.
+    """
+    if not os.path.exists(OTS_BIN):
+        return
+    upgraded = 0
+    for f in sorted(os.listdir(SEALS_DIR)):
+        if not f.endswith(".json.ots"):
+            continue
+        path = os.path.join(SEALS_DIR, f)
+        r = subprocess.run([OTS_BIN, "upgrade", path], capture_output=True, text=True, timeout=120)
+        if "Success" in (r.stdout + r.stderr):
+            upgraded += 1
+    if upgraded:
+        print(f"  OTS: {upgraded} prueba(s) completada(s) con atestacion Bitcoin")
+
+
 def main():
     os.makedirs(SEALS_DIR, exist_ok=True)
+    upgrade_pending()
     con = sqlite3.connect(DB)
     as_of = con.execute("SELECT MAX(as_of) FROM signals").fetchone()[0]
     if not as_of:
