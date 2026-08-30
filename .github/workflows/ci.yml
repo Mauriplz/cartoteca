@@ -16,14 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: sintaxis de todos los servicios
-        run: python3 - <<'PY'
-          import ast, glob, sys
-          bad = []
-          for f in glob.glob("services/**/*.py", recursive=True) + glob.glob("tests/*.py"):
-              try: ast.parse(open(f).read())
-              except SyntaxError as e: bad.append(f"{f}: {e}")
-          sys.exit("\n".join(bad) if bad else 0)
-          PY
+        run: python3 tests/ci_checks.py
       - name: validacion rechaza fichero corrupto (fixture)
         run: |
           mkdir -p /tmp/fx/prices/en /tmp/fx/prices/ja

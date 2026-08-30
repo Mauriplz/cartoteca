@@ -35,8 +35,14 @@ jobs:
       - name: guarda de frescura
         id: fresh
         run: |
-          NOW=$(curl -fsS --max-time 30 -H "User-Agent: pokemon-card-price/ci (github actions)" \
-            "https://api.tcgdex.net/v2/en/cards/base1-4" | python3 -c "import sys,json;print((json.load(sys.stdin).get('pricing',{}).get('cardmarket') or {}).get('updated',''))" || echo "")
+          # Diagnostico explicito: codigo HTTP y tipo de contenido, para distinguir
+          # un challenge de Cloudflare (HTML/403) de un timeout o un fallo real.
+          HDR=$(curl -sS -o /tmp/probe.json -w "%{http_code} %{content_type}" --max-time 45 --retry 2 \
+            -H "User-Agent: pokemon-card-price/2nd-leg (+https://github.com/Mauriplz/cartoteca)" \
+            -H "Accept: application/json" \
+            "https://api.tcgdex.net/v2/en/cards/base1-4" || echo "000 none")
+          echo "respuesta de la fuente: $HDR"
+          NOW=$(python3 -c "import json;print((json.load(open('/tmp/probe.json')).get('pricing',{}).get('cardmarket') or {}).get('updated',''))" 2>/dev/null || echo "")
           LAST=$(cat /tmp/pcp-archive/last_batch_stamp.txt 2>/dev/null || echo "")
           DAY=$(date -u +%Y-%m-%d)
           echo "now=$NOW last=$LAST day=$DAY"
