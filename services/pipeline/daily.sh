@@ -38,6 +38,9 @@ step "indice"       /usr/bin/python3 services/index/compute_index.py
 step "sello"        /usr/bin/python3 services/seal/seal.py
 step "invariantes"  /usr/bin/python3 tests/test_invariants.py
 
+echo "--- publicacion (archivo + sellos + B2)"
+bash services/backup/publish_local.sh || echo "publicacion incompleta; se reintenta manana"
+
 if [ -n "$PCP_HEALTHCHECK_URL" ]; then
   curl -fsS -m 15 --retry 3 "$PCP_HEALTHCHECK_URL" > /dev/null && echo "--- ping healthcheck OK"
 else

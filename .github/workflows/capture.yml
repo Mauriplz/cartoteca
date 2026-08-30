@@ -1,22 +1,16 @@
 # Segunda pata de captura, independiente del portatil.
-#
-# INACTIVO hasta que el usuario cree el repositorio remoto y los secretos.
 # Diseno contra los fallos conocidos del cron de Actions:
-#  - los schedules se retrasan horas y se saltan en silencio -> TRES crons el mismo
-#    dia; la reanudacion es idempotente (capture.py salta lo ya capturado)
-#  - la hora del refresco de la fuente (~15:00 UTC) es hipotesis, no constante ->
-#    la guarda de frescura compara el sello del lote con el del dia anterior y
-#    aborta sin error si la fuente aun no refresco (el siguiente cron reintenta)
-#  - los workflows programados se desactivan a los 60 dias sin actividad ->
-#    keepalive semanal en watchdog.yml
-#  - IP de datacenter contra una API gratuita -> ritmo de cortesia (15 rps) y
-#    deteccion de challenges (HTML donde se espera JSON = fuente bloqueada)
+#  - schedules que se retrasan/saltan -> TRES crons diarios, reanudacion idempotente
+#  - hora de refresco de la fuente como hipotesis -> guarda de frescura por sello de
+#    lote, persistido en el REPO-ARCHIVO (unico estado compartido entre patas)
+#  - desactivacion a los 60 dias -> keepalive en watchdog.yml
+#  - IP de datacenter -> ritmo de cortesia y deteccion de challenges
 name: captura-diaria
 on:
   schedule:
-    - cron: "20 15 * * *"   # tras el refresco tipico de la fuente
-    - cron: "20 17 * * *"   # red de seguridad 1
-    - cron: "20 20 * * *"   # red de seguridad 2
+    - cron: "20 15 * * *"
+    - cron: "20 17 * * *"
+    - cron: "20 20 * * *"
   workflow_dispatch:
 concurrency:
   group: captura
@@ -24,34 +18,52 @@ concurrency:
 jobs:
   capture:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 1 }
+      - name: llave del archivo
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.ARCHIVE_SSH_KEY }}" > ~/.ssh/archive_key
+          chmod 600 ~/.ssh/archive_key
+          ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
+      - name: clonar archivo
+        run: |
+          GIT_SSH_COMMAND="ssh -i ~/.ssh/archive_key" \
+            git clone --depth 1 git@github.com:Mauriplz/pcp-archive.git /tmp/pcp-archive
       - name: guarda de frescura
         id: fresh
         run: |
-          # Sello del lote hoy vs el ultimo archivado: si no cambio, la fuente
-          # aun no refresco -> salir en verde y que reintente el siguiente cron.
-          NOW=$(curl -fsS --max-time 30 -H "User-Agent: pokemon-card-price/ci" \
-            "https://api.tcgdex.net/v2/en/cards/base1-4" | python3 -c "import sys,json;print((json.load(sys.stdin).get('pricing',{}).get('cardmarket') or {}).get('updated',''))")
-          LAST=$(cat data/last_batch_stamp.txt 2>/dev/null || echo "")
-          echo "now=$NOW last=$LAST"
-          if [ -z "$NOW" ]; then echo "fuente_inaccesible=true" >> "$GITHUB_OUTPUT"; exit 1; fi
-          if [ "$NOW" = "$LAST" ]; then echo "fresh=false" >> "$GITHUB_OUTPUT"; else echo "fresh=true" >> "$GITHUB_OUTPUT"; echo "$NOW" > data/last_batch_stamp.txt; fi
-      - name: captura
+          NOW=$(curl -fsS --max-time 30 -H "User-Agent: pokemon-card-price/ci (github actions)" \
+            "https://api.tcgdex.net/v2/en/cards/base1-4" | python3 -c "import sys,json;print((json.load(sys.stdin).get('pricing',{}).get('cardmarket') or {}).get('updated',''))" || echo "")
+          LAST=$(cat /tmp/pcp-archive/last_batch_stamp.txt 2>/dev/null || echo "")
+          DAY=$(date -u +%Y-%m-%d)
+          echo "now=$NOW last=$LAST day=$DAY"
+          if [ -z "$NOW" ]; then echo "::warning::fuente inaccesible o challenge"; echo "fresh=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if [ "$NOW" = "$LAST" ]; then echo "fresh=false" >> "$GITHUB_OUTPUT";
+          elif [ -s "/tmp/pcp-archive/prices/en/prices_${DAY}.jsonl.gz" ]; then echo "fresh=false" >> "$GITHUB_OUTPUT"; echo "el dia ya esta archivado (pata local)";
+          else echo "fresh=true" >> "$GITHUB_OUTPUT"; echo "$NOW" > /tmp/pcp-archive/last_batch_stamp.txt; fi
+      - name: captura y validacion
         if: steps.fresh.outputs.fresh == 'true'
         run: |
           python3 services/capture/capture.py --languages en,ja --catalog --workers 6 --rps 15
           python3 services/pipeline/validate.py
       - name: publicar al archivo
         if: steps.fresh.outputs.fresh == 'true'
-        env: { ARCHIVE_TOKEN: "${{ secrets.ARCHIVE_TOKEN }}" }
         run: |
-          # Se empuja al repositorio-archivo privado. Pendiente de: crear el repo
-          # y el token (ver docs/RUNBOOK.md).
-          bash services/backup/push_archive.sh
+          DAY=$(date -u +%Y-%m-%d)
+          cd /tmp/pcp-archive
+          mkdir -p prices/en prices/ja sets/en sets/ja catalog/en catalog/ja
+          for L in en ja; do
+            cp -f "$GITHUB_WORKSPACE/data/prices/$L/prices_${DAY}.jsonl.gz" "prices/$L/" 2>/dev/null || true
+            cp -f "$GITHUB_WORKSPACE/data/sets/$L/sets_${DAY}.jsonl.gz" "sets/$L/" 2>/dev/null || true
+            cp -f "$GITHUB_WORKSPACE/data/catalog/$L/catalog_${DAY}.jsonl.gz" "catalog/$L/" 2>/dev/null || true
+          done
+          shasum -a 256 prices/*/prices_${DAY}.jsonl.gz > "checksums_${DAY}.txt"
+          git add -A
+          git -c user.email=bot@cartoteca -c user.name=cartoteca-actions commit -m "captura ${DAY} (actions)" || exit 0
+          GIT_SSH_COMMAND="ssh -i ~/.ssh/archive_key" git push
       - name: ping healthcheck
         if: steps.fresh.outputs.fresh == 'true'
-        run: |
-          [ -n "${{ secrets.HEALTHCHECK_URL }}" ] && curl -fsS -m 15 --retry 3 "${{ secrets.HEALTHCHECK_URL }}" || echo "healthcheck sin configurar"
+        run: curl -fsS -m 15 --retry 3 "${{ secrets.HEALTHCHECK_URL }}"

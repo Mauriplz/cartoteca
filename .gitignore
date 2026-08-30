@@ -9,3 +9,5 @@ __pycache__/
 logs/
 apps/web/.next
 apps/web/node_modules
+# Credenciales del usuario: JAMAS en git (el repo de codigo sera publico)
+datos-solicitados.md
