@@ -46,7 +46,10 @@ const SCAN_CAP = 5000;
  * identificadores de la metodologia, no palabras, y traducirlos separaria el
  * CSV de la documentacion y del resto del sitio.
  */
-const COMPONENT_COLS = ["cohort_pct", "artist_premium", "jp_en_ratio"] as const;
+// Todas las senales que el compuesto PUEDE llevar, no solo las que lleva hoy: si
+// el pipeline incorpora market_divergence al score, el CSV no la omitira en
+// silencio y la puntuacion seguira siendo reproducible desde sus columnas.
+const COMPONENT_COLS = ["cohort_pct", "artist_premium", "jp_en_ratio", "market_divergence"] as const;
 
 /**
  * Copia literal de CASE_OF_SIGNAL y caseOf() de la pagina del ranking
