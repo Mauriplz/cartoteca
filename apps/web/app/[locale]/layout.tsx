@@ -91,7 +91,18 @@ export default async function RootLayout({
             </div>
           </div>
         </nav>
-        <main className="wrap" style={{ padding: "28px 20px 80px" }}>{children}</main>
+        <main className="wrap" style={{ padding: "28px 20px 60px" }}>{children}</main>
+        <footer
+          className="wrap faint"
+          style={{
+            padding: "20px 20px 48px", fontSize: 11.5, lineHeight: 1.6,
+            borderTop: "1px solid var(--border)", display: "grid", gap: 6,
+          }}
+        >
+          <span>{t.footer.notAffiliated}</span>
+          <span>{t.footer.sources}</span>
+          <span>{t.footer.notAdvice}</span>
+        </footer>
       </body>
     </html>
   );

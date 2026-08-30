@@ -239,6 +239,33 @@ export interface RankingDict {
     value: (p: { label: string; z: string; clipped: boolean; help: string }) => string;
   };
 
+  /**
+   * Export CSV del ranking: el enlace de descarga que vive junto a los filtros
+   * y las cabeceras del fichero. `title` es el title honesto del enlace: lleva
+   * la fecha de calculo de las senales (ya formateada) y dice que la puntuacion
+   * mide desajuste observable, no una prevision. Las cabeceras de las columnas
+   * de componente (cohort_pct, artist_premium, jp_en_ratio) no estan aqui a
+   * proposito: son claves de senal, identificadores de la metodologia, y viajan
+   * tal cual en los tres idiomas.
+   */
+  csv: {
+    label: string;
+    button: string;
+    title: (asOf: string) => string;
+    header: {
+      position: string;
+      name: string;
+      set: string;
+      variant: string;
+      lang: string;
+      illustrator: string;
+      rarity: string;
+      price: string;
+      roundtrip: string;
+      score: string;
+    };
+  };
+
   footer: string;
 }
 
@@ -478,6 +505,25 @@ const es: RankingDict = {
     noData: (label) => `${label}: sin dato para esta carta, no entra en el promedio.`,
     value: ({ label, z, clipped, help }) =>
       `${label}: ${z} z${clipped ? " (recortado)" : ""}. ${help}`,
+  },
+
+  csv: {
+    label: "Exportar",
+    button: "Descargar CSV",
+    title: (asOf) =>
+      `Descarga este ranking en CSV con los filtros activos, hasta 1.000 filas. Señales calculadas el ${asOf}. La puntuación mide desajuste observable hoy, no es una previsión de subida.`,
+    header: {
+      position: "posicion",
+      name: "nombre",
+      set: "set",
+      variant: "variante",
+      lang: "idioma",
+      illustrator: "ilustrador",
+      rarity: "rareza",
+      price: "precio_eur",
+      roundtrip: "coste_ida_vuelta_pct",
+      score: "puntuacion",
+    },
   },
 
   footer:
@@ -722,6 +768,25 @@ const en: RankingDict = {
       `${label}: ${z} z${clipped ? " (clipped)" : ""}. ${help}`,
   },
 
+  csv: {
+    label: "Export",
+    button: "Download CSV",
+    title: (asOf) =>
+      `Download this ranking as CSV under the active filters, up to 1,000 rows. Signals computed on ${asOf}. The score measures mispricing observable today; it is not a forecast of a rise.`,
+    header: {
+      position: "position",
+      name: "name",
+      set: "set",
+      variant: "variant",
+      lang: "language",
+      illustrator: "illustrator",
+      rarity: "rarity",
+      price: "price_eur",
+      roundtrip: "round_trip_cost_pct",
+      score: "score",
+    },
+  },
+
   footer:
     "Prices from Cardmarket (trend, EUR) and TCGplayer (market, USD); catalogue from TCGdex. The whole site leaves out TCG Pocket's digital cards and any instrument whose Cardmarket product is shared by several cards, because its price cannot be attributed. Neither this page nor any other page of Cartoteca is investment advice.",
 };
@@ -962,6 +1027,25 @@ const ja: RankingDict = {
     noData: (label) => `${label}：このカードにはデータがなく、平均に入りません。`,
     value: ({ label, z, clipped, help }) =>
       `${label}：${z} z${clipped ? "（上限で打ち切り）" : ""}。${help}`,
+  },
+
+  csv: {
+    label: "エクスポート",
+    button: "CSVをダウンロード",
+    title: (asOf) =>
+      `現在の絞り込み条件のまま、このランキングを最大1,000行のCSVでダウンロードします。シグナルの算出日は${asOf}。スコアが測っているのは今日観測できる価格のずれであって、値上がりの予測ではありません。`,
+    header: {
+      position: "順位",
+      name: "カード名",
+      set: "エディション",
+      variant: "バリエーション",
+      lang: "言語",
+      illustrator: "イラストレーター",
+      rarity: "レアリティ",
+      price: "価格EUR",
+      roundtrip: "往復コスト%",
+      score: "スコア",
+    },
   },
 
   footer:

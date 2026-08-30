@@ -13,6 +13,12 @@ export interface CommonDict {
   signal: Record<string, { label: string; help: string }>;
   noImage: string;
   noData: string;
+  footer: {
+    notAffiliated: string;
+    sources: string;
+    notAdvice: string;
+  };
+
   artwork: {
     /** La ilustracion viene de otra edicion: es OTRO objeto fisico y hay que decirlo. */
     borrowed: (lang: string) => string;
@@ -59,6 +65,14 @@ const es: CommonDict = {
   },
   noImage: "TCGdex no publica imagen de esta carta",
   noData: "sin dato",
+  footer: {
+    notAffiliated:
+      "Cartoteca no está producida, respaldada ni afiliada a Nintendo, The Pokémon Company ni Creatures Inc. Pokémon y los nombres de las cartas son marcas de sus titulares y se usan únicamente para identificar los productos.",
+    sources:
+      "Datos de catálogo y precios vía TCGdex (licencia MIT). Precios originados en Cardmarket (EUR) y TCGplayer (USD). Tipos de cambio del BCE. Imágenes enlazadas desde sus fuentes, no alojadas aquí.",
+    notAdvice:
+      "Nada en este sitio es asesoramiento financiero ni una recomendación de compra. Las señales miden desajustes observables hoy y no constituyen previsiones validadas.",
+  },
   artwork: {
     borrowed: (lang) => `Ilustración de la edición en ${lang.toLowerCase()}`,
     external: (source) => `Imagen de ${source}`,
@@ -103,6 +117,14 @@ const en: CommonDict = {
   },
   noImage: "TCGdex publishes no image for this card",
   noData: "no data",
+  footer: {
+    notAffiliated:
+      "Cartoteca is not produced, endorsed by, or affiliated with Nintendo, The Pokémon Company, or Creatures Inc. Pokémon and card names are trademarks of their owners, used solely to identify the products.",
+    sources:
+      "Catalog and price data via TCGdex (MIT license). Prices originate from Cardmarket (EUR) and TCGplayer (USD). Exchange rates from the ECB. Images are hotlinked from their sources, not hosted here.",
+    notAdvice:
+      "Nothing on this site is financial advice or a buy recommendation. Signals measure mispricing observable today and are not validated forecasts.",
+  },
   artwork: {
     borrowed: (lang) => `Artwork from the ${lang} edition`,
     external: (source) => `Image from ${source}`,
@@ -147,6 +169,14 @@ const ja: CommonDict = {
   },
   noImage: "TCGdex はこのカードの画像を公開していません",
   noData: "データなし",
+  footer: {
+    notAffiliated:
+      "Cartoteca は任天堂、株式会社ポケモン、クリーチャーズとは一切関係がなく、公認も受けていません。ポケモンおよびカード名は各権利者の商標であり、商品の識別のためにのみ使用しています。",
+    sources:
+      "カタログと価格データは TCGdex（MITライセンス）経由。価格は Cardmarket（ユーロ）と TCGplayer（米ドル）に由来します。為替レートは欧州中央銀行。画像は提供元へのリンクであり、当サイトでは保存していません。",
+    notAdvice:
+      "本サイトの内容は投資助言や購入推奨ではありません。シグナルは本日観測可能な価格のずれを測るものであり、検証済みの予測ではありません。",
+  },
   artwork: {
     borrowed: (lang) => `${lang}版のイラストです`,
     external: (source) => `画像提供: ${source}`,

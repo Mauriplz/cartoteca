@@ -478,3 +478,11 @@ export function getDataQuality() {
 
   return { completeness, captureDays: captureDays.map((r) => r.obs_date), tables: seals.n };
 }
+
+/** Tipos de cambio del dia (BCE, base EUR), persistidos por el pipeline. */
+export function getFxRates(): Record<string, { rate: number; fx_date: string | null }> {
+  const rows = db().prepare(
+    "SELECT quote, rate, fx_date FROM fx_rates WHERE as_of = (SELECT MAX(as_of) FROM fx_rates)"
+  ).all() as Array<{ quote: string; rate: number; fx_date: string | null }>;
+  return Object.fromEntries(rows.map((r) => [r.quote, { rate: r.rate, fx_date: r.fx_date }]));
+}

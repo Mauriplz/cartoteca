@@ -1,0 +1,212 @@
+{
+  "_comment": "Escenarios sinteticos del motor de inferencia por ciclo de vida (services/graded/infer.py). Cada escenario: listing (fila de graded_listings), observations (filas de listing_observations, varios dias), as_of, other_listings opcional para relistados, y expected con el desenlace y las ventas que el motor debe producir. Cubre todos los casos de PLAN.md seccion 5.",
+  "scenarios": [
+    {
+      "name": "subasta_terminada_con_pujas_venta_confirmada",
+      "as_of": "2026-08-20",
+      "listing": {
+        "listing_id": "A-1001", "source": "fixture",
+        "instrument_key": "en:swsh3-20:holo:unlimited|PSA|10",
+        "title": "Charizard VMAX 020/189 PSA 10 GEM MINT",
+        "grader": "PSA", "grade": 10, "price": 432.0, "currency": "USD",
+        "is_auction": 1, "bid_count": 17, "quantity": 1, "seller": "alpha_cards",
+        "first_seen": "2026-08-10", "last_seen": "2026-08-14", "last_status": "ended"
+      },
+      "observations": [
+        {"observed_at": "2026-08-10", "price": 120.0, "bid_count": 3, "quantity": 1, "status": "active"},
+        {"observed_at": "2026-08-11", "price": 180.0, "bid_count": 6, "quantity": 1, "status": "active"},
+        {"observed_at": "2026-08-12", "price": 260.0, "bid_count": 9, "quantity": 1, "status": "active"},
+        {"observed_at": "2026-08-13", "price": 355.0, "bid_count": 13, "quantity": 1, "status": "active"},
+        {"observed_at": "2026-08-14", "price": 432.0, "bid_count": 17, "quantity": 1, "status": "ended"}
+      ],
+      "expected": {
+        "outcome": "sale_confirmed",
+        "sales": [
+          {"method": "auction_confirmed", "price_est": 432.0, "sale_date_est": "2026-08-14",
+           "confidence_min": 0.9, "confidence_max": 1.0}
+        ]
+      }
+    },
+    {
+      "name": "subasta_sin_pujas_no_vendido",
+      "as_of": "2026-08-20",
+      "listing": {
+        "listing_id": "A-1002", "source": "fixture",
+        "instrument_key": "en:swsh7-215:holo:unlimited|PSA|10",
+        "title": "Umbreon VMAX Alt Art PSA 10 Evolving Skies",
+        "grader": "PSA", "grade": 10, "price": 1999.99, "currency": "USD",
+        "is_auction": 1, "bid_count": 0, "quantity": 1, "seller": "dreamer_prices",
+        "first_seen": "2026-08-10", "last_seen": "2026-08-14", "last_status": "ended"
+      },
+      "observations": [
+        {"observed_at": "2026-08-10", "price": 1999.99, "bid_count": 0, "quantity": 1, "status": "active"},
+        {"observed_at": "2026-08-11", "price": 1999.99, "bid_count": 0, "quantity": 1, "status": "active"},
+        {"observed_at": "2026-08-12", "price": 1999.99, "bid_count": 0, "quantity": 1, "status": "active"},
+        {"observed_at": "2026-08-13", "price": 1999.99, "bid_count": 0, "quantity": 1, "status": "active"},
+        {"observed_at": "2026-08-14", "price": 1999.99, "bid_count": 0, "quantity": 1, "status": "ended"}
+      ],
+      "expected": {"outcome": "not_sold", "sales": []}
+    },
+    {
+      "name": "precio_fijo_desaparece_sin_relistar_venta_probable",
+      "as_of": "2026-08-20",
+      "listing": {
+        "listing_id": "F-2001", "source": "fixture",
+        "instrument_key": "en:swsh3-20:holo:unlimited|PSA|10",
+        "title": "Charizard VMAX Darkness Ablaze PSA 10",
+        "grader": "PSA", "grade": 10, "price": 250.0, "currency": "USD",
+        "is_auction": 0, "bid_count": null, "quantity": 1, "seller": "steady_seller",
+        "first_seen": "2026-07-28", "last_seen": "2026-08-01", "last_status": "active"
+      },
+      "observations": [
+        {"observed_at": "2026-07-28", "price": 250.0, "bid_count": null, "quantity": 1, "status": "active"},
+        {"observed_at": "2026-07-29", "price": 250.0, "bid_count": null, "quantity": 1, "status": "active"},
+        {"observed_at": "2026-07-30", "price": 250.0, "bid_count": null, "quantity": 1, "status": "active"},
+        {"observed_at": "2026-07-31", "price": 250.0, "bid_count": null, "quantity": 1, "status": "active"},
+        {"observed_at": "2026-08-01", "price": 250.0, "bid_count": null, "quantity": 1, "status": "active"}
+      ],
+      "expected": {
+        "outcome": "sale_probable",
+        "sales": [
+          {"method": "fixed_disappeared", "price_est": 250.0, "sale_date_est": "2026-08-02",
+           "confidence_min": 0.4, "confidence_max": 0.8}
+        ]
+      }
+    },
+    {
+      "name": "reaparicion_detectada_relistado_no_venta",
+      "as_of": "2026-08-20",
+      "listing": {
+        "listing_id": "F-2002", "source": "fixture",
+        "instrument_key": "en:swsh7-215:holo:unlimited|PSA|10",
+        "title": "Umbreon VMAX Alt Art PSA 10 Evolving Skies",
+        "grader": "PSA", "grade": 10, "price": 900.0, "currency": "USD",
+        "is_auction": 0, "bid_count": null, "quantity": 1, "seller": "gamma_grading",
+        "first_seen": "2026-08-01", "last_seen": "2026-08-05", "last_status": "active"
+      },
+      "observations": [
+        {"observed_at": "2026-08-01", "price": 900.0, "bid_count": null, "quantity": 1, "status": "active"},
+        {"observed_at": "2026-08-03", "price": 900.0, "bid_count": null, "quantity": 1, "status": "active"},
+        {"observed_at": "2026-08-05", "price": 900.0, "bid_count": null, "quantity": 1, "status": "active"}
+      ],
+      "other_listings": [
+        {
+          "listing_id": "F-2099", "source": "fixture",
+          "instrument_key": "en:swsh7-215:holo:unlimited|PSA|10",
+          "title": "Umbreon VMAX Alt Art PSA 10 Evolving Skies!",
+          "grader": "PSA", "grade": 10, "price": 950.0, "currency": "USD",
+          "is_auction": 0, "bid_count": null, "quantity": 1, "seller": "gamma_grading",
+          "first_seen": "2026-08-08", "last_seen": "2026-08-20", "last_status": "active"
+        }
+      ],
+      "expected": {"outcome": "relisted", "sales": []}
+    },
+    {
+      "name": "bajadas_progresivas_y_desaparicion_best_offer_estimado",
+      "as_of": "2026-08-20",
+      "listing": {
+        "listing_id": "F-2003", "source": "fixture",
+        "instrument_key": "en:swsh7-203:holo:unlimited|BGS|9.5",
+        "title": "Rayquaza VMAX Alt Art BGS 9.5 Evolving Skies",
+        "grader": "BGS", "grade": 9.5, "price": 265.0, "currency": "USD",
+        "is_auction": 0, "bid_count": null, "quantity": 1, "seller": "negotiator",
+        "first_seen": "2026-08-01", "last_seen": "2026-08-05", "last_status": "active"
+      },
+      "observations": [
+        {"observed_at": "2026-08-01", "price": 300.0, "bid_count": null, "quantity": 1, "status": "active"},
+        {"observed_at": "2026-08-02", "price": 300.0, "bid_count": null, "quantity": 1, "status": "active"},
+        {"observed_at": "2026-08-03", "price": 280.0, "bid_count": null, "quantity": 1, "status": "active"},
+        {"observed_at": "2026-08-05", "price": 265.0, "bid_count": null, "quantity": 1, "status": "active"}
+      ],
+      "expected": {
+        "outcome": "sale_estimated",
+        "sales": [
+          {"method": "best_offer_estimated", "price_est": 238.5, "sale_date_est": "2026-08-06",
+           "confidence_min": 0.05, "confidence_max": 0.5}
+        ]
+      }
+    },
+    {
+      "name": "decremento_de_cantidad_ventas_parciales_confirmadas",
+      "as_of": "2026-08-20",
+      "listing": {
+        "listing_id": "F-2004", "source": "fixture",
+        "instrument_key": "en:swsh4-188:holo:unlimited|PSA|9",
+        "title": "Pikachu VMAX Vivid Voltage PSA 9 MINT",
+        "grader": "PSA", "grade": 9, "price": 80.0, "currency": "USD",
+        "is_auction": 0, "bid_count": null, "quantity": 2, "seller": "bulk_slabs",
+        "first_seen": "2026-08-16", "last_seen": "2026-08-20", "last_status": "active"
+      },
+      "observations": [
+        {"observed_at": "2026-08-16", "price": 80.0, "bid_count": null, "quantity": 5, "status": "active"},
+        {"observed_at": "2026-08-17", "price": 80.0, "bid_count": null, "quantity": 5, "status": "active"},
+        {"observed_at": "2026-08-18", "price": 80.0, "bid_count": null, "quantity": 3, "status": "active"},
+        {"observed_at": "2026-08-19", "price": 80.0, "bid_count": null, "quantity": 3, "status": "active"},
+        {"observed_at": "2026-08-20", "price": 80.0, "bid_count": null, "quantity": 2, "status": "active"}
+      ],
+      "expected": {
+        "outcome": "active",
+        "sales": [
+          {"method": "quantity_decrement", "price_est": 80.0, "sale_date_est": "2026-08-18",
+           "confidence_min": 0.8, "confidence_max": 1.0, "units": 2},
+          {"method": "quantity_decrement", "price_est": 80.0, "sale_date_est": "2026-08-20",
+           "confidence_min": 0.8, "confidence_max": 1.0, "units": 1}
+        ]
+      }
+    },
+    {
+      "name": "desaparecido_ventana_sin_vencer_pendiente",
+      "as_of": "2026-08-20",
+      "listing": {
+        "listing_id": "F-2005", "source": "fixture",
+        "instrument_key": "en:swsh45-SV107:holo:unlimited|CGC|8.5",
+        "title": "Blastoise Shining Fates CGC 8.5",
+        "grader": "CGC", "grade": 8.5, "price": 120.0, "currency": "USD",
+        "is_auction": 0, "bid_count": null, "quantity": 1, "seller": "patient_one",
+        "first_seen": "2026-08-13", "last_seen": "2026-08-15", "last_status": "active"
+      },
+      "observations": [
+        {"observed_at": "2026-08-13", "price": 120.0, "bid_count": null, "quantity": 1, "status": "active"},
+        {"observed_at": "2026-08-14", "price": 120.0, "bid_count": null, "quantity": 1, "status": "active"},
+        {"observed_at": "2026-08-15", "price": 120.0, "bid_count": null, "quantity": 1, "status": "active"}
+      ],
+      "expected": {"outcome": "pending_window", "sales": []}
+    },
+    {
+      "name": "listing_todavia_activo_sin_conclusion",
+      "as_of": "2026-08-20",
+      "listing": {
+        "listing_id": "F-2006", "source": "fixture",
+        "instrument_key": "en:base1-4:holo:unlimited|SGC|10",
+        "title": "Charizard Base Set SGC 10",
+        "grader": "SGC", "grade": 10, "price": 5200.0, "currency": "USD",
+        "is_auction": 0, "bid_count": null, "quantity": 1, "seller": "vault_holder",
+        "first_seen": "2026-08-18", "last_seen": "2026-08-20", "last_status": "active"
+      },
+      "observations": [
+        {"observed_at": "2026-08-18", "price": 5200.0, "bid_count": null, "quantity": 1, "status": "active"},
+        {"observed_at": "2026-08-19", "price": 5200.0, "bid_count": null, "quantity": 1, "status": "active"},
+        {"observed_at": "2026-08-20", "price": 5200.0, "bid_count": null, "quantity": 1, "status": "active"}
+      ],
+      "expected": {"outcome": "active", "sales": []}
+    },
+    {
+      "name": "multiple_desaparecido_con_stock_restante_ambiguo",
+      "as_of": "2026-08-20",
+      "listing": {
+        "listing_id": "F-2007", "source": "fixture",
+        "instrument_key": "en:swsh4-188:holo:unlimited|PSA|9",
+        "title": "Pikachu VMAX Vivid Voltage PSA 9",
+        "grader": "PSA", "grade": 9, "price": 75.0, "currency": "USD",
+        "is_auction": 0, "bid_count": null, "quantity": 3, "seller": "bulk_exit",
+        "first_seen": "2026-08-01", "last_seen": "2026-08-03", "last_status": "active"
+      },
+      "observations": [
+        {"observed_at": "2026-08-01", "price": 75.0, "bid_count": null, "quantity": 3, "status": "active"},
+        {"observed_at": "2026-08-02", "price": 75.0, "bid_count": null, "quantity": 3, "status": "active"},
+        {"observed_at": "2026-08-03", "price": 75.0, "bid_count": null, "quantity": 3, "status": "active"}
+      ],
+      "expected": {"outcome": "ended_ambiguous", "sales": []}
+    }
+  ]
+}

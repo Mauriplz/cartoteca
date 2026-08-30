@@ -1,0 +1,66 @@
+{
+  "_comment": "Respuesta simulada de la eBay Browse API (item_summary/search) para la consulta 'Charizard VMAX PSA 10'. Misma forma que la API real: itemSummaries con itemId, title, price/currentBidPrice, buyingOptions, bidCount, seller, estimatedAvailabilities. Incluye titulos trampa para el parser.",
+  "href": "https://api.ebay.com/buy/browse/v1/item_summary/search?q=charizard+vmax+psa+10&limit=200&offset=0",
+  "total": 7,
+  "itemSummaries": [
+    {
+      "itemId": "v1|110001|0",
+      "title": "Charizard VMAX 020/189 Alt Art PSA 10 GEM MINT Darkness Ablaze",
+      "price": {"value": "350.00", "currency": "USD"},
+      "currentBidPrice": {"value": "432.00", "currency": "USD"},
+      "buyingOptions": ["AUCTION"],
+      "bidCount": 17,
+      "seller": {"username": "alpha_cards"},
+      "estimatedAvailabilities": [{"estimatedAvailableQuantity": 1}],
+      "itemEndDate": "2026-08-22T18:00:00.000Z"
+    },
+    {
+      "itemId": "v1|110002|0",
+      "title": "Charizard VMAX Alt Art PSA10 Gem Mint Darkness Ablaze",
+      "price": {"value": "499.99", "currency": "USD"},
+      "buyingOptions": ["FIXED_PRICE", "BEST_OFFER"],
+      "seller": {"username": "beta_collectibles"},
+      "estimatedAvailabilities": [{"estimatedAvailableQuantity": 1}]
+    },
+    {
+      "itemId": "v1|110003|0",
+      "title": "Charizard VMAX PSA 10 pop report deep dive + checklist",
+      "price": {"value": "9.99", "currency": "USD"},
+      "buyingOptions": ["FIXED_PRICE"],
+      "seller": {"username": "guide_seller"},
+      "estimatedAvailabilities": [{"estimatedAvailableQuantity": 10}]
+    },
+    {
+      "itemId": "v1|110004|0",
+      "title": "Charizard VMAX 020/189 pack fresh not PSA graded NM",
+      "price": {"value": "60.00", "currency": "USD"},
+      "buyingOptions": ["FIXED_PRICE"],
+      "seller": {"username": "raw_dealer"},
+      "estimatedAvailabilities": [{"estimatedAvailableQuantity": 1}]
+    },
+    {
+      "itemId": "v1|110005|0",
+      "title": "Charizard VMAX Alt Art BGS 9.5 Quad+ Darkness Ablaze",
+      "price": {"value": "410.00", "currency": "USD"},
+      "buyingOptions": ["FIXED_PRICE"],
+      "seller": {"username": "gamma_grading"},
+      "estimatedAvailabilities": [{"estimatedAvailableQuantity": 1}]
+    },
+    {
+      "itemId": "v1|110006|0",
+      "title": "Charizard VMAX PSA 10 Darkness Ablaze - multiple available",
+      "price": {"value": "445.00", "currency": "USD"},
+      "buyingOptions": ["FIXED_PRICE"],
+      "seller": {"username": "bulk_slabs"},
+      "estimatedAvailabilities": [{"estimatedAvailableQuantity": 4}]
+    },
+    {
+      "itemId": "v1|110007|0",
+      "title": "PSA-style custom slab Charizard VMAX display case",
+      "price": {"value": "19.99", "currency": "USD"},
+      "buyingOptions": ["FIXED_PRICE"],
+      "seller": {"username": "custom_slabs"},
+      "estimatedAvailabilities": [{"estimatedAvailableQuantity": 25}]
+    }
+  ]
+}

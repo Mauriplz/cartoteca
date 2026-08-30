@@ -554,6 +554,20 @@ export default async function Ranking({
     orden === undefined ? t.drift.sortDesc : orden === "deriva" ? t.drift.sortAsc : t.drift.sortOff;
   const marcaOrden = orden === "deriva" ? " ↓" : orden === "deriva_asc" ? " ↑" : "";
 
+  // El enlace de descarga conserva los filtros activos con las mismas claves de
+  // querystring de la pagina. El `orden` por deriva no viaja a proposito: el
+  // CSV documenta el ranking y va siempre en orden de puntuacion, que es lo que
+  // cuenta su columna de posicion.
+  const qsCsv = new URLSearchParams();
+  if (caso) qsCsv.set("caso", caso);
+  if (lang) qsCsv.set("idioma", lang);
+  if (minPrice) qsCsv.set("min", String(minPrice));
+  if (rareza) qsCsv.set("rareza", rareza);
+  const qCsv = qsCsv.toString();
+  const hrefCsv = qCsv
+    ? `${localePath(locale, "exportar")}?${qCsv}`
+    : localePath(locale, "exportar");
+
   return (
     <>
       <h1>{t.title}</h1>
@@ -686,6 +700,15 @@ export default async function Ranking({
               {t.filters.clearAll}
             </a>
           ) : null}
+        </Fila>
+
+        <Fila>
+          <span className="faint" style={CAPTION_STYLE}>
+            {t.csv.label}
+          </span>
+          <a href={hrefCsv} className="tag" title={t.csv.title(f.date(stats.asOf))}>
+            {t.csv.button}
+          </a>
         </Fila>
       </div>
 

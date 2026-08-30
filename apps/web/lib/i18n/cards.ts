@@ -148,6 +148,14 @@ export interface CardsDict {
       tcgMarket: string;
       tcgInEur: string;
       fxSuffix: (rate: string) => string;
+      /**
+       * Equivalencia del precio EUR en otras divisas, bajo el precio principal.
+       * `amounts` llega ya formateado y ORDENADO segun el idioma (en: USD
+       * primero; ja: JPY primero; es: USD · JPY). `date` es la fecha del tipo
+       * BCE ya formateada, o null si la fuente no la trae: entonces la frase
+       * se dice sin fecha, nunca con una inventada.
+       */
+      fxLine: (amounts: string, date: string | null) => string;
     };
 
     facts: {
@@ -315,6 +323,28 @@ export interface CardsDict {
       caveatEm: string;
       caveatB: string;
       noisy: (n: number, s: string) => string;
+    };
+
+    /**
+     * Analogas de cohorte: donde queda el precio de esta carta entre cartas
+     * comparables (mismo idioma, misma rareza, era cercana). Es CONTEXTO de
+     * valoracion, no una prediccion, y el texto de ayuda lo dice.
+     */
+    analogs: {
+      h2: string;
+      /** La linea honesta: contexto de valoracion, no prediccion. */
+      help: string;
+      /** "Las N cartas mas parecidas cotizan entre p25 y p75". */
+      intro: (n: number, s: string, p25: string, p75: string) => string;
+      /** Que significa "parecida". Los años llegan crudos: el japones les pone 年. */
+      criteria: (lang: string, rarity: string, yearFrom: string, yearTo: string) => string;
+      /** Etiquetas de las casillas: cuartiles, mediana y la posicion de ESTA carta. */
+      p25: string;
+      median: string;
+      p75: string;
+      thisCard: (percentile: string) => string;
+      /** Titulo de la mini-lista de vecinas por precio. */
+      closest: (n: number, s: string) => string;
     };
 
     artist: {
@@ -498,6 +528,8 @@ const es: CardsDict = {
       tcgMarket: "TCGplayer · precio de mercado",
       tcgInEur: "TCGplayer en euros",
       fxSuffix: (rate) => ` · 1 € = ${rate} $`,
+      fxLine: (amounts, date) =>
+        date ? `≈ ${amounts} — tipo BCE del ${date}` : `≈ ${amounts} — tipo BCE`,
     },
 
     facts: {
@@ -655,6 +687,20 @@ const es: CardsDict = {
       caveatB: "; no dice por qué, y a veces la razón es buena (la carta es menos deseada).",
       noisy: (_n, s) =>
         ` Con solo ${s} pares, este percentil es ruidoso: cada carta mueve el resultado varios puntos.`,
+    },
+
+    analogs: {
+      h2: "Dónde cotiza entre sus análogas",
+      help: "Es contexto de valoración: dónde queda su precio hoy entre cartas comparables. No dice nada de hacia dónde va.",
+      intro: (_n, s, p25, p75) =>
+        `Las ${s} cartas más parecidas a esta cotizan entre ${p25} y ${p75} (p25–p75). `,
+      criteria: (lang, rarity, yearFrom, yearTo) =>
+        `Parecida significa: mismo idioma (${lang}), misma rareza (${rarity}) y era cercana (sets de ${yearFrom} a ${yearTo}).`,
+      p25: "p25 de la cohorte",
+      median: "Mediana de la cohorte",
+      p75: "p75 de la cohorte",
+      thisCard: (percentile) => `esta carta · percentil ${percentile}`,
+      closest: (_n, s) => `Las ${s} más cercanas por precio`,
     },
 
     artist: {
@@ -845,6 +891,8 @@ const en: CardsDict = {
       tcgMarket: "TCGplayer · market price",
       tcgInEur: "TCGplayer in euros",
       fxSuffix: (rate) => ` · €1 = $${rate}`,
+      fxLine: (amounts, date) =>
+        date ? `≈ ${amounts} — ECB rate of ${date}` : `≈ ${amounts} — ECB rate`,
     },
 
     facts: {
@@ -1001,6 +1049,20 @@ const en: CardsDict = {
       caveatB: "; it does not say why, and sometimes the reason is a sound one (the card is simply less wanted).",
       noisy: (_n, s) =>
         ` With only ${s} peers, this percentile is noisy: each single card moves the result by several points.`,
+    },
+
+    analogs: {
+      h2: "Where it trades among its analogues",
+      help: "This is valuation context: where its price sits today among comparable cards. It says nothing about where it is heading.",
+      intro: (_n, s, p25, p75) =>
+        `The ${s} cards most similar to this one trade between ${p25} and ${p75} (p25–p75). `,
+      criteria: (lang, rarity, yearFrom, yearTo) =>
+        `Similar means: same language (${lang}), same rarity (${rarity}) and a close era (sets from ${yearFrom} to ${yearTo}).`,
+      p25: "Cohort p25",
+      median: "Cohort median",
+      p75: "Cohort p75",
+      thisCard: (percentile) => `this card · percentile ${percentile}`,
+      closest: (_n, s) => `The ${s} closest by price`,
     },
 
     artist: {
@@ -1189,6 +1251,10 @@ const ja: CardsDict = {
       tcgMarket: "TCGplayer・マーケット価格",
       tcgInEur: "TCGplayer（ユーロ換算）",
       fxSuffix: (rate) => ` · 1 € = ${rate} $`,
+      fxLine: (amounts, date) =>
+        date
+          ? `≈ ${amounts} — 欧州中央銀行レート（${date}）`
+          : `≈ ${amounts} — 欧州中央銀行レート`,
     },
 
     facts: {
@@ -1340,6 +1406,20 @@ const ja: CardsDict = {
       caveatB: "だという意味であって、その理由までは示しません。単に人気が低いという真っ当な理由の場合もあります。",
       noisy: (_n, s) =>
         `同群が${s}件しかないため、このパーセンタイルは不安定です。1枚増減するだけで結果が数ポイント動きます。`,
+    },
+
+    analogs: {
+      h2: "類似カードの中での価格位置",
+      help: "これは評価の文脈です。比較可能なカードの中で今日の価格がどこに位置するかを示すもので、今後の値動きについては何も述べません。",
+      intro: (_n, s, p25, p75) =>
+        `このカードに最も近い${s}枚は、${p25} から ${p75} の間（p25–p75）で取引されています。`,
+      criteria: (lang, rarity, yearFrom, yearTo) =>
+        `「近い」の定義は、同じ言語（${lang}）、同じレアリティ（${rarity}）、近い時代（${yearFrom}年〜${yearTo}年のセット）です。`,
+      p25: "同群の p25",
+      median: "同群の中央値",
+      p75: "同群の p75",
+      thisCard: (percentile) => `このカード・パーセンタイル ${percentile}`,
+      closest: (_n, s) => `価格が最も近い${s}枚`,
     },
 
     artist: {

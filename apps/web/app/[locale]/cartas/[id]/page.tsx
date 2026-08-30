@@ -7,6 +7,7 @@ import { ArtworkPlaceholder } from "@/components/CardArtwork";
 import PriceTrajectory from "@/components/PriceTrajectory";
 import WatchlistButton from "@/components/WatchlistButton";
 import JsonLdCard from "@/components/JsonLdCard";
+import CohortAnalogs from "@/components/CohortAnalogs";
 import {
   LOCALES, coerceLocale, localePath, makeFormatters, pick,
   type Formatters, type Locale,
@@ -15,8 +16,8 @@ import { cards as cardsDict, type CardsDict } from "@/lib/i18n/cards";
 import { common, type CommonDict } from "@/lib/i18n/common";
 import { user } from "@/lib/i18n/user";
 import {
-  getCard, getCardSignals, getMarketStats, getPriceHistory, getPriceTrajectory,
-  getSiblingVariants,
+  getCard, getCardSignals, getFxRates, getMarketStats, getPriceHistory,
+  getPriceTrajectory, getSiblingVariants,
 } from "@/lib/queries";
 import type { CardRow, SignalDetail } from "@/lib/types";
 
@@ -243,6 +244,35 @@ export default async function CartaPage(
   const fallbackName =
     fallbackLang === "en" || fallbackLang === "ja" ? c.langName[fallbackLang] : fallbackLang;
 
+  /*
+    Equivalencia del precio EUR en USD y JPY, con el tipo BCE que persiste el
+    pipeline en fx_rates. Sin fila no hay linea: nada de tipos inventados. El
+    idioma decide que divisa se destaca primero: la propia en ja (JPY); USD en
+    en y es. makeFormatters no trae yen porque solo esta linea lo pinta: se
+    formatea aqui con su Intl, sin decimales, que el yen no los usa.
+  */
+  const fxRates = getFxRates();
+  const fxUsd: { rate: number; fx_date: string | null } | undefined = fxRates["USD"];
+  const fxJpy: { rate: number; fx_date: string | null } | undefined = fxRates["JPY"];
+  const jpyFmt = new Intl.NumberFormat(
+    { es: "es-ES", en: "en-US", ja: "ja-JP" }[locale],
+    { style: "currency", currency: "JPY", maximumFractionDigits: 0 },
+  );
+  const fxAmounts =
+    card.price_eur != null
+      ? (locale === "ja"
+          ? [
+              fxJpy && jpyFmt.format(card.price_eur * fxJpy.rate),
+              fxUsd && f.usd(card.price_eur * fxUsd.rate),
+            ]
+          : [
+              fxUsd && f.usd(card.price_eur * fxUsd.rate),
+              fxJpy && jpyFmt.format(card.price_eur * fxJpy.rate),
+            ]
+        ).filter((s): s is string => typeof s === "string")
+      : [];
+  const fxDate = fxUsd?.fx_date ?? fxJpy?.fx_date ?? null;
+
   const arb = signals.find((s) => s.signal === "market_divergence");
   const usdInEur = arb ? num(arb.detail, "usd_in_eur") : null;
   const fx = arb ? num(arb.detail, "fx_eurusd") : null;
@@ -318,7 +348,17 @@ export default async function CartaPage(
           <div className="stats" style={{ marginBottom: 16 }}>
             <div className="stat">
               {card.price_eur != null ? (
-                <div className="v">{f.eur(card.price_eur)}</div>
+                <>
+                  <div className="v">{f.eur(card.price_eur)}</div>
+                  {fxAmounts.length > 0 && (
+                    <div className="faint num" style={{ fontSize: 11, marginTop: 2 }}>
+                      {t.detail.stats.fxLine(
+                        fxAmounts.join(" · "),
+                        fxDate ? f.date(fxDate) : null,
+                      )}
+                    </div>
+                  )}
+                </>
               ) : (
                 <div className="v faint" style={{ fontSize: 15 }}>{t.noPrice}</div>
               )}
@@ -458,6 +498,14 @@ export default async function CartaPage(
           ))}
         </div>
       )}
+
+      {/* ----------------------------------------------------------- analogas */}
+      {/*
+        Contexto de valoracion junto a las señales, no al final: si la seccion no
+        puede definirse con honestidad (sin precio, sin rareza, sin año o con
+        menos de 4 analogas) el componente se calla entero.
+      */}
+      <CohortAnalogs card={card} locale={locale} />
 
       {/* ---------------------------------------------------------- variantes */}
       <h2 style={{ marginTop: 32 }}>{t.detail.siblings.h2}</h2>
