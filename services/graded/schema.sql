@@ -70,12 +70,16 @@ CREATE INDEX IF NOT EXISTS idx_gl_seller     ON graded_listings(seller);
 -- tiempo (precio, pujas, cantidad, estado); lo estable vive en graded_listings.
 CREATE TABLE IF NOT EXISTS listing_observations (
   listing_id  TEXT NOT NULL,
+  source      TEXT NOT NULL,         -- misma disciplina que graded_listings: los ids de
+                                     -- fixture imitan el formato real ('v1|...|0'), y sin
+                                     -- source aqui las trayectorias de ambos origenes se
+                                     -- mezclarian aunque el snapshot las separe
   observed_at TEXT NOT NULL,         -- dia UTC de NUESTRA captura: el unico reloj valido
   price       REAL,                  -- ask del dia; en subastas, puja mas alta del dia
   bid_count   INTEGER,
   quantity    INTEGER,               -- el decremento entre dias = venta parcial confirmada
   status      TEXT NOT NULL,         -- 'active' | 'ended'
-  PRIMARY KEY (listing_id, observed_at)  -- una observacion por dia; recargar es idempotente
+  PRIMARY KEY (listing_id, source, observed_at)  -- una observacion por dia; recarga idempotente
 );
 CREATE INDEX IF NOT EXISTS idx_lo_date ON listing_observations(observed_at);
 
@@ -83,11 +87,18 @@ CREATE INDEX IF NOT EXISTS idx_lo_date ON listing_observations(observed_at);
 -- No son hechos: son conclusiones con evidencia adjunta (decision 3).
 CREATE TABLE IF NOT EXISTS inferred_sales (
   listing_id     TEXT NOT NULL,
+  source         TEXT NOT NULL,      -- misma disciplina de colision que graded_listings
   instrument_key TEXT,               -- copiado del listing al inferir: las consultas de
                                      -- precio por instrumento no deben necesitar JOIN
   inferred_at    TEXT NOT NULL,      -- cuando corrio el motor (as_of): auditable y reproducible
-  sale_date_est  TEXT,               -- estimacion puntual; el intervalo real va en detail
-  price_est      REAL,               -- precio estimado en la divisa del listing
+  sale_date_est  TEXT NOT NULL,      -- estimacion puntual (el motor SIEMPRE la fija; el
+                                     -- intervalo real va en detail). NOT NULL ademas porque
+                                     -- esta en la PK: SQLite lo toleraria NULL, Postgres no.
+  price_est      REAL,               -- precio estimado
+  currency       TEXT,               -- decision 6: la divisa viaja SIEMPRE en la misma fila
+                                     -- que el precio. Sin esta columna, agregar ventas
+                                     -- inferidas exigiria un JOIN con graded_listings para
+                                     -- no mezclar USD y EUR (error E4).
   method         TEXT NOT NULL,      -- auction_confirmed | fixed_disappeared |
                                      -- best_offer_estimated | quantity_decrement
   confidence     REAL NOT NULL,      -- [0,1]; ORDINAL hasta calibrar con Terapeak, no
@@ -97,7 +108,8 @@ CREATE TABLE IF NOT EXISTS inferred_sales (
                                      -- precios, pujas, ventana de relistado comprobada,
                                      -- factor de descuento aplicado, etc.
   -- Un listing multiple genera varias ventas parciales en dias distintos, y ademas
-  -- puede cerrar con una venta final por otro metodo: por eso la PK lleva los tres.
-  PRIMARY KEY (listing_id, sale_date_est, method)
+  -- puede cerrar con una venta final por otro metodo: por eso la PK lleva fecha y
+  -- metodo ademas de la identidad (listing_id, source) del listing.
+  PRIMARY KEY (listing_id, source, sale_date_est, method)
 );
 CREATE INDEX IF NOT EXISTS idx_is_instrument ON inferred_sales(instrument_key, sale_date_est);

@@ -47,6 +47,7 @@ class TestParseTitle(unittest.TestCase):
         ("Vintage Charizard PSA 4.5 played", ("PSA", 4.5)),
         ("Charizard #10 of set, PSA 9", ("PSA", 9.0)),
         ("PSA 10 Charizard... yes PSA 10!", ("PSA", 10.0)),
+        ("No Reserve PSA 10 Charizard auction", ("PSA", 10.0)),  # "no" no niega el gradeo
     ]
 
     CASES_TRAMPA = [
@@ -62,6 +63,10 @@ class TestParseTitle(unittest.TestCase):
         "PSA Charizard slab",                           # gradeadora sin grado
         "PSA 100 point pristine replica",               # grado invalido
         "Charizard PSA 10.5 custom label",              # grado inexistente
+        "Lot of 3 PSA 10 Charizard VMAX",               # lote con UN solo grado: precio de 3 cartas
+        "PSA 10 Charizard + Blastoise bundle",          # bundle: idem
+        "2x PSA 10 Charizard Darkness Ablaze",          # multiplicador: idem
+        "not graded by PSA 10 standards",               # negacion a 3 palabras
         "",                                             # vacio
         None,                                           # nulo
     ]
@@ -206,6 +211,9 @@ class TestInferLifecycle(unittest.TestCase):
                     self.assertIsInstance(sale["detail"], dict)
                     self.assertTrue(sale["detail"])  # evidencia nunca vacia
                     json.dumps(sale["detail"])       # serializable para la columna TEXT
+                    # Decision 6 del esquema: jamas un precio sin su divisa.
+                    self.assertEqual(sale["currency"], sc["listing"]["currency"])
+                    self.assertEqual(sale["source"], sc["listing"]["source"])
 
     def test_best_offer_declara_factor_sin_calibrar(self):
         sc = next(s for s in self.scenarios if s["name"].startswith("bajadas_progresivas"))
@@ -260,7 +268,7 @@ class TestSchema(unittest.TestCase):
                 ":seller,:first_seen,:last_seen,:last_status)",
                 ebay_source.to_listing_row(n))
             self.con.execute(
-                "INSERT INTO listing_observations VALUES (:listing_id,:observed_at,"
+                "INSERT INTO listing_observations VALUES (:listing_id,:source,:observed_at,"
                 ":price,:bid_count,:quantity,:status)",
                 ebay_source.to_observation_row(n))
         self.assertEqual(
@@ -272,14 +280,15 @@ class TestSchema(unittest.TestCase):
         result = infer.classify(sc["listing"], sc["observations"], sc["as_of"])
         for sale in result["sales"]:
             self.con.execute(
-                "INSERT INTO inferred_sales VALUES (:listing_id,:instrument_key,"
-                ":inferred_at,:sale_date_est,:price_est,:method,:confidence,:detail)",
+                "INSERT INTO inferred_sales VALUES (:listing_id,:source,:instrument_key,"
+                ":inferred_at,:sale_date_est,:price_est,:currency,:method,:confidence,:detail)",
                 infer.sale_to_row(sale))
         stored = self.con.execute(
-            "SELECT method, confidence, detail FROM inferred_sales").fetchall()
+            "SELECT method, confidence, detail, currency FROM inferred_sales").fetchall()
         self.assertEqual(len(stored), 1)
         self.assertEqual(stored[0][0], infer.METHOD_AUCTION)
         self.assertIsInstance(json.loads(stored[0][2]), dict)
+        self.assertEqual(stored[0][3], "USD")  # la divisa viaja con el precio
 
 
 if __name__ == "__main__":

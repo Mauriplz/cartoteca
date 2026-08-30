@@ -58,8 +58,16 @@ GRADERS = ("PSA", "BGS", "CGC", "SGC")
 # para tolerar "PSA10" (pegado) y "PSA-10" ademas de "PSA 10".
 _GRADER_RE = re.compile(r"\b(PSA|BGS|CGC|SGC)(?![A-Z])")
 
-# Negaciones en las 2 palabras previas: "not PSA graded", "no PSA", "non PSA".
+# Negaciones en las 3 palabras previas: "not PSA graded", "no PSA", "non PSA",
+# "not graded by PSA". EXCEPTO cuando la negacion se consume en una frase hecha
+# que no niega el gradeo: "No Reserve PSA 10" es una subasta legitima.
 _NEGATION = {"NOT", "NO", "NON", "NEVER", "UNGRADED", "ISNT", "ISN'T", "WITHOUT"}
+_NEG_CONSUMED_BY = {"RESERVE", "RESERVES", "RETURNS", "REFUNDS"}
+
+# Lotes y multiplicadores: "lot of 3 PSA 10", "bundle", "2x PSA 10". Un solo
+# grado mencionado pero VARIAS cartas: el precio es del lote, no de una carta,
+# y colarlo contaminaria la serie igual que un slab de imitacion.
+_LOT_RE = re.compile(r"\b(LOTS?|BUNDLE|SET OF \d{1,2}|\d+\s?X|X\d+)\b")
 
 # Imitaciones justo despues de la gradeadora: "PSA-style", "PSA like", "PSA type".
 _STYLE_RE = re.compile(r"^[\s\-]*(STYLE|LIKE|TYPE|LOOK|LOOKING|QUALITY|EQUIVALENT|COPY|REPLICA|CUSTOM)\b")
@@ -88,11 +96,18 @@ def parse_title(title):
     # "PSA" no es el grado de una carta en venta.
     if "POP REPORT" in up:
         return None, None
+    # Lotes/bundles/multiplicadores: aunque haya un unico grado, el precio no es
+    # el de UNA carta. Conservador: fuera.
+    if _LOT_RE.search(up):
+        return None, None
     candidates = []
     for m in _GRADER_RE.finditer(up):
-        before_tokens = re.findall(r"[A-Z0-9']+", up[: m.start()])[-2:]
-        if any(t in _NEGATION for t in before_tokens):
-            return None, None
+        before_tokens = re.findall(r"[A-Z0-9']+", up[: m.start()])[-3:]
+        for i, tok in enumerate(before_tokens):
+            if tok in _NEGATION:
+                nxt = before_tokens[i + 1] if i + 1 < len(before_tokens) else None
+                if nxt not in _NEG_CONSUMED_BY:
+                    return None, None
         rest = up[m.end():]
         if _STYLE_RE.match(rest):
             return None, None
@@ -268,7 +283,8 @@ def to_listing_row(n):
 def to_observation_row(n):
     """Dict normalizado -> fila de listing_observations."""
     return {
-        "listing_id": n["listing_id"], "observed_at": n["observed_at"],
+        "listing_id": n["listing_id"], "source": n["source"],
+        "observed_at": n["observed_at"],
         "price": n["price"], "bid_count": n["bid_count"],
         "quantity": n["quantity"], "status": n["status"],
     }

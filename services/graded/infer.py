@@ -59,6 +59,14 @@ BEST_OFFER_DISCOUNT = 0.90
 # y activar la rama Best Offer en vez de la de precio fijo simple.
 MIN_PROGRESSIVE_DROPS = 2
 
+# Dias de gracia antes de dar por TERMINADA una subasta que desaparece sin
+# status 'ended' explicito. Un sondeo diario puede fallar o saltarse un dia
+# (los propios fixtures observan en dias alternos); sin esta gracia, un unico
+# hueco de captura convertiria una subasta VIVA en "venta confirmada" al precio
+# de una puja intermedia: el peor falso positivo posible del modulo. Corta
+# porque las subastas duran dias, no semanas. SIN CALIBRAR.
+AUCTION_GRACE_DAYS = 2
+
 # Confianzas por metodo, en [0,1]. ORDINALES hasta calibrar: alta > media > baja.
 CONF_AUCTION = 0.95           # fin de subasta con pujas: el mecanismo garantiza venta
 CONF_QTY_DECREMENT = 0.90     # decremento de stock: evento estructural, casi inequivoco
@@ -91,6 +99,7 @@ class InferConfig:
     relist_price_tolerance: float = RELIST_PRICE_TOLERANCE
     best_offer_discount: float = BEST_OFFER_DISCOUNT
     min_progressive_drops: int = MIN_PROGRESSIVE_DROPS
+    auction_grace_days: int = AUCTION_GRACE_DAYS
     conf_auction: float = CONF_AUCTION
     conf_qty_decrement: float = CONF_QTY_DECREMENT
     conf_fixed_disappeared: float = CONF_FIXED_DISAPPEARED
@@ -153,8 +162,12 @@ def _sale(listing, as_of, method, confidence, price_est, sale_date_est, detail):
     """Fila logica de inferred_sales; detail queda como dict (JSON al persistir)."""
     return {
         "listing_id": listing.get("listing_id"),
+        "source": listing.get("source"),
         "instrument_key": listing.get("instrument_key"),
         "inferred_at": as_of,
+        # La divisa viaja SIEMPRE con el precio (schema.sql, decision 6): una
+        # venta inferida sin divisa obligaria a un JOIN para no mezclar USD/EUR.
+        "currency": listing.get("currency"),
         "sale_date_est": sale_date_est,
         "price_est": None if price_est is None else round(float(price_est), 2),
         "method": method,
@@ -216,12 +229,22 @@ def classify(listing, observations, as_of, other_listings=(), config=DEFAULT_CON
     gone_days = (_d(as_of) - _d(last["observed_at"])).days
     present = (not ended) and gone_days <= 0
 
-    # 2) Subastas: el fin es un evento duro; no hay ventana de relistado que
-    #    esperar. Con pujas, el mecanismo de subasta garantiza la venta al
-    #    precio final observado. Sin pujas, no hubo venta.
+    # 2) Subastas: el fin EXPLICITO (status 'ended') es un evento duro; no hay
+    #    ventana de relistado que esperar. Con pujas, el mecanismo de subasta
+    #    garantiza la venta al precio final observado. Sin pujas, no hubo venta.
+    #    PERO una subasta que solo DESAPARECE (sin 'ended' observado) puede ser
+    #    un hueco de captura con la subasta aun viva: se espera una gracia corta
+    #    antes de concluir, o la puja intermedia se colaria como venta.
     if is_auction:
         if present:
             result.update(outcome=OUT_ACTIVE, sales=sales)
+            return result
+        if not ended and gone_days <= cfg.auction_grace_days:
+            result.update(outcome=OUT_PENDING, sales=sales, detail={
+                "days_gone": gone_days,
+                "auction_grace_days": cfg.auction_grace_days,
+                "note": "subasta desaparecida sin 'ended' explicito: posible hueco de captura",
+            })
             return result
         bids = max((o.get("bid_count") or 0) for o in obs)
         if bids > 0:
@@ -232,6 +255,9 @@ def classify(listing, observations, as_of, other_listings=(), config=DEFAULT_CON
                 detail={
                     "bid_count": bids,
                     "ended_explicit": ended,  # False = desaparecio sin status 'ended'
+                    # Sin fin explicito, el fin real cae en este intervalo.
+                    "sale_date_interval": [last["observed_at"],
+                                           last["observed_at"] if ended else as_of],
                     "n_obs": len(obs),
                     "price_path": _price_path(obs),
                 },
