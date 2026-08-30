@@ -13,33 +13,25 @@
 | Sello criptográfico + anclaje OpenTimestamps | `data/seals/`, primer sello anclado el 28-08 |
 | Tests de invariantes (12) | corren dentro del pipeline; si fallan, el día no se publica |
 
-## 🔑 Esperando tus cuentas (en orden de urgencia)
+## ✅ Activado el 2026-08-30
 
-### 1. Healthchecks.io — 2 minutos · el aviso si un día no se captura
-1. Cuenta gratuita en https://healthchecks.io → «Add Check», nómbralo `cartoteca-pipeline`, periodo 1 día, gracia 6 h.
-2. Copia la URL de ping y ejecútame esto o dímelo:
-   `launchctl setenv PCP_HEALTHCHECK_URL "https://hc-ping.com/TU-UUID"`
-   (y me lo dices para persistirla en el LaunchAgent).
+| Pieza | Estado |
+|---|---|
+| **Healthchecks** | armado: el pipeline hace ping al terminar; su ausencia dispara email desde fuera de nuestra infraestructura |
+| **GitHub** | código en `Mauriplz/cartoteca` (público) · archivo en `Mauriplz/pcp-archive` (público, con backfill completo desde el 25-08 y checksums) · sellos en `Mauriplz/pcp-seals` (público, con .ots) · llave de despliegue + secretos · CI en verde · captura redundante con 3 crons y guarda de frescura verificada contra la fuente (200 application/json) que además detecta si la pata local ya archivó el día |
+| **Backblaze B2** | rclone configurado, bucket `pcp-archive` sincronizado (~27 MB); sync diario dentro del pipeline |
+| **Publicación diaria** | el pipeline local publica archivo + sellos + B2 tras sellar; la pata de Actions cubre los días en que el portátil no esté |
 
-### 2. GitHub — 10 minutos · la segunda pata de captura y la copia del archivo
-1. `brew install gh && gh auth login`
-2. Dímelo y yo creo: el repo del código (público, para minutos ilimitados de Actions),
-   el repo `pcp-archive` (privado, los datos) y el repo `pcp-seals` (público, solo hashes),
-   configuro `ARCHIVE_TOKEN` y `HEALTHCHECK_URL` como secretos y activo los 3 workflows ya escritos
-   (`capture.yml` con crons redundantes y guarda de frescura, `watchdog.yml`, `ci.yml`).
-
-### 3. Backblaze B2 — 5 minutos · copia fría del archivo (10 GB gratis, sin tarjeta)
-1. Cuenta en https://www.backblaze.com/sign-up/cloud-storage → bucket privado `pcp-archive`.
-2. Crea una App Key y pásame keyID + applicationKey; yo configuro rclone y el sync diario
-   (`services/backup/backup_local.sh`, ya escrito).
+## 🔑 Todavía esperando
 
 ### 4. Cloudflare — 15 minutos · salir a internet (Fase B del ROADMAP)
 1. Cuenta gratuita + comprar el dominio que elijas (~10 €/año, único gasto del proyecto).
 2. `npm i -g wrangler && wrangler login`, y yo hago el resto (Pages + Worker + D1).
 
-### 5. eBay — 10 minutos · desbloquea la Fase F entera (gradeadas)
-1. Cuenta de desarrollador: https://developer.ebay.com → App Key set (Browse API).
-2. Cuenta de vendedor normal (activa Terapeak: ~3 años de ventas reales).
+### 5. eBay — EN TRÁMITE
+- Desarrollador: solicitud enviada, **pendiente de aprobación de eBay** (≥1 día hábil).
+  Cuando llegue el correo: crear un App Key set de producción y pasarme App ID + Cert ID.
+- Vendedor: cuenta `maur-967913` creada ✅ (Terapeak disponible para cuando toque).
 
 ## 🔧 Operación
 
